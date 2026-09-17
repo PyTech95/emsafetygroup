@@ -22,7 +22,7 @@ export default function EmSafetyLogo({
 
   const heightClass = {
     xs: 'h-10 sm:h-11',
-    sm: 'h-[88px] sm:h-[92px]',
+    sm: 'h-[96px] sm:h-[100px]',
     md: 'h-[81px] sm:h-[107px]',
     lg: 'h-[77px] sm:h-[97px]',
     xl: 'h-[117px] sm:h-[135px]',

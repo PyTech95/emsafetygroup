@@ -52,7 +52,7 @@ export default function Header() {
             const active = isActive(item.route);
             return (
               <button key={item.route} onClick={() => go(item.route)} data-testid={`nav-${item.route.replace('/', '') || 'home'}`}
-                className={`relative px-2.5 py-2 font-sans text-[12px] font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer ${
+                className={`relative px-2.5 py-2 font-sans text-[13px] font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer ${
                   active ? 'text-[#0b2545]' : 'text-slate-600 hover:text-[#0b2545]'
                 }`}>
                 {item.label}
@@ -63,7 +63,7 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          <a href="tel:+3904221456565" data-testid="header-phone" className="hidden md:inline-flex items-center gap-2 font-sans text-[12px] font-semibold whitespace-nowrap shrink-0 text-slate-700 hover:text-[#0b2545] transition-colors">
+          <a href="tel:+3904221456565" data-testid="header-phone" className="hidden md:inline-flex items-center gap-2 font-sans text-[13px] font-semibold whitespace-nowrap shrink-0 text-slate-700 hover:text-[#0b2545] transition-colors">
             <Phone className="w-4 h-4 text-amber-500" />
             <span>+39 0422 1456565</span>
           </a>
