@@ -22,7 +22,7 @@ export default function EmSafetyLogo({
 
   const heightClass = {
     xs: 'h-10 sm:h-11',
-    sm: 'h-14',
+    sm: 'h-[88px] sm:h-[92px]',
     md: 'h-[81px] sm:h-[107px]',
     lg: 'h-[77px] sm:h-[97px]',
     xl: 'h-[117px] sm:h-[135px]',
@@ -30,7 +30,7 @@ export default function EmSafetyLogo({
 
   const sloganSizeClass = {
     xs: 'text-[10px] leading-[1.25]',
-    sm: 'text-[11px] sm:text-[12px] leading-[1.3]',
+    sm: 'text-[12.5px] sm:text-[13.5px] leading-[1.35]',
     md: 'text-[13px] sm:text-[14.5px] leading-[1.32]',
     lg: 'text-[15px] sm:text-[17px] leading-[1.35]',
     xl: 'text-[18px] sm:text-[21px] leading-[1.35]',
@@ -40,7 +40,7 @@ export default function EmSafetyLogo({
     <img
       src={asset('/assets/images/em-logo.png')}
       alt="E.M Safety — Consulenze e Formazioni"
-      className={`${heightClass} w-auto object-contain [filter:drop-shadow(0_3px_8px_rgba(23,23,23,0.22))] ${
+      className={`${heightClass} w-auto object-contain [filter:drop-shadow(0_6px_18px_rgba(11,37,69,0.38))_drop-shadow(0_2px_5px_rgba(11,37,69,0.28))] ${
         isLight ? 'bg-white rounded-lg px-3 py-1.5' : ''
       }`}
     />
@@ -59,7 +59,7 @@ export default function EmSafetyLogo({
       </div>
     ) : (
       <div
-        className={`font-sans font-light tracking-wide ${sloganSizeClass} ${
+        className={`font-sans font-normal tracking-wide ${sloganSizeClass} ${
           isLight ? 'text-neutral-300' : 'text-neutral-700'
         } ${sloganPlacement === 'centered' ? 'text-center' : 'text-left'}`}
         data-testid="em-safety-slogan"

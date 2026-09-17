@@ -86,6 +86,17 @@ export default function Footer() {
             ))}
           </div>
         </div>
+
+        <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-center">
+          <p className="font-sans text-[12px] text-slate-400 tracking-wide" data-testid="footer-credit">
+            Designed by{' '}
+            <a href="https://pytechdigital.com" target="_blank" rel="noopener noreferrer"
+              data-testid="footer-credit-pytech"
+              className="font-semibold text-[#1e6fd9] hover:text-[#155bb0] underline-offset-2 hover:underline transition-colors">
+              Pytech
+            </a>
+          </p>
+        </div>
       </div>
 
       <LegalModal isOpen={legal.open} title={legal.title} content={legal.content} onClose={() => setLegal({ open: false, title: '', content: '' })} />

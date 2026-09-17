@@ -42,17 +42,9 @@ export default function Header() {
         scrolled ? 'shadow-[0_2px_20px_rgba(11,37,69,0.08)]' : ''
       } border-b border-slate-200/80`}
     >
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 h-[108px] sm:h-[120px] flex items-center justify-between gap-3">
+      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 h-[108px] sm:h-[120px] flex items-center justify-between gap-3 py-2">
         <button onClick={() => go('/')} className="text-left flex items-center shrink-0 cursor-pointer hover:opacity-90 transition-opacity" aria-label="E.M Safety Home" data-testid="logo-home-button">
-          <div className="hidden 2xl:block">
-            <EmSafetyLogo variant="navy" size="md" showTagline showSlogan sloganPlacement="right" />
-          </div>
-          <div className="hidden sm:block 2xl:hidden">
-            <EmSafetyLogo variant="navy" size="md" showTagline showSlogan={false} />
-          </div>
-          <div className="sm:hidden w-[130px]">
-            <EmSafetyLogo variant="navy" size="sm" showTagline={false} showSlogan sloganPlacement="below" />
-          </div>
+          <EmSafetyLogo variant="navy" size="sm" showTagline showSlogan sloganPlacement="right" />
         </button>
 
         <nav className="hidden xl:flex items-center gap-0.5 shrink-0 whitespace-nowrap" aria-label="Navigazione principale" data-testid="desktop-navigation">
@@ -75,12 +67,6 @@ export default function Header() {
             <Phone className="w-4 h-4 text-amber-500" />
             <span>+39 0422 1456565</span>
           </a>
-          <button onClick={() => go('/contatti')} data-testid="header-cta-quote"
-            aria-label="Richiedi Preventivo"
-            className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-2.5 bg-[#1e6fd9] hover:bg-[#155bb0] text-white font-sans text-[12px] font-bold rounded-full shadow-md hover:shadow-lg transition-all active:scale-95 border-b-2 border-[#9ec7f0] cursor-pointer whitespace-nowrap">
-            <span className="sm:hidden">Preventivo</span>
-            <span className="hidden sm:inline">Richiedi Preventivo</span>
-          </button>
           <button onClick={() => setOpen(!open)} className="xl:hidden p-2.5 text-[#1e6fd9] hover:bg-[#e8f1fc] rounded-xl border border-[#cfe3f8] cursor-pointer" aria-label="Menu" aria-expanded={open} aria-controls="mobile-navigation" data-testid="mobile-menu-toggle">
             {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
