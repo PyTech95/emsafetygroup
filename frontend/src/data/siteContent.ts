@@ -191,6 +191,11 @@ export const CLIENTS: ClientItem[] = [
   { name: 'SIMI Group', logo: '/assets/images/clients/simi-group.png', dark: true },
   { name: 'Auto Ghinzani', logo: '/assets/images/clients/autoghinzani.png' },
   { name: 'SFRE', logo: '/assets/images/clients/sfre.png' },
+  { name: 'Ariston Group', logo: '/assets/images/clients/ariston-group.png' },
+  { name: 'Thermowatt', logo: '/assets/images/clients/thermowatt.png' },
+  { name: 'H.Essers', logo: '/assets/images/clients/hessers.png' },
+  { name: 'Igeam Consulting', logo: '/assets/images/clients/igeam.png' },
+  { name: 'Omnia Professional Advisor', logo: '/assets/images/clients/omnia.png' },
 ];
 
 export const COMPANY = {
