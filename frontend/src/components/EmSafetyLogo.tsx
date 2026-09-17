@@ -40,7 +40,7 @@ export default function EmSafetyLogo({
     <img
       src={asset('/assets/images/em-logo.png')}
       alt="E.M Safety — Consulenze e Formazioni"
-      className={`${heightClass} w-auto object-contain [filter:drop-shadow(0_3px_8px_rgba(11,37,69,0.30))_drop-shadow(0_1px_2px_rgba(11,37,69,0.22))] ${
+      className={`${heightClass} w-auto object-contain pb-[3px] [filter:drop-shadow(0_3px_8px_rgba(11,37,69,0.30))_drop-shadow(0_1px_2px_rgba(11,37,69,0.22))] ${
         isLight ? 'bg-white rounded-lg px-3 py-1.5' : ''
       }`}
     />
