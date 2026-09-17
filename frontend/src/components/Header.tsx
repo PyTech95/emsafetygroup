@@ -42,7 +42,7 @@ export default function Header() {
         scrolled ? 'shadow-[0_2px_20px_rgba(11,37,69,0.08)]' : ''
       } border-b border-slate-200/80`}
     >
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 h-[108px] sm:h-[120px] flex items-center justify-between gap-3 py-2">
+      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 h-[108px] sm:h-[120px] flex items-center justify-between gap-3">
         <button onClick={() => go('/')} className="text-left flex items-center shrink-0 cursor-pointer hover:opacity-90 transition-opacity" aria-label="E.M Safety Home" data-testid="logo-home-button">
           <EmSafetyLogo variant="navy" size="sm" showTagline showSlogan sloganPlacement="right" />
         </button>
