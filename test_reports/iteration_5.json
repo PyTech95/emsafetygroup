@@ -1,0 +1,21 @@
+{
+  "summary": "Full end-to-end verification of new features: floating call button, footer Pytech credit, editable site texts (Testi Sito), full logo CRUD/reorder (Loghi & Partner), scanner beam animation, sparkles, responsive layouts, and role-based admin nav gating. Backend: 18/18 tests passed in /app/backend/tests/test_logos_and_content.py (logos list/CRUD/reorder/auth/sections, /api/site-content GET/PUT/reset with proper 401/403/400). Frontend: all data-testid selectors present and working; homepage hero text override + reset propagates end-to-end; admin logo add→edit→reorder→replace image→delete increments/decrements homepage grid (13→14→13); floating call button present on all 7 public pages with href tel:+3904221456565 and text '+39 0422 1456565', absent on /admin/login; footer credit links to https://pytechdigital.com target=_blank rel='noopener noreferrer'; sparkles present; scan beam animates (animationName safetyScan, height 4px, moving top); header logo natural 827x480. Responsive at 390/768/1024/1440/1920/2560 widths: no horizontal overflow anywhere, hamburger present on mobile, floating button does not overlap footer credit. Client-role login does NOT see Testi Sito/Loghi nav items. Regression: POST /api/inquiries 200, /storie loads. Console shows only expected pre-existing 401 from /api/auth/me for anonymous users.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_logos_and_content.py",
+    "/app/test_reports/pytest/logos_content.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor UX: TextsView 'texts-search' filters by label/default/current value only, not by raw key. This is fine but worth documenting for automation — e.g., searching 'home.hero.title1' returns no results; users must search by displayed label/value.",
+    "seed_logos() only seeds a section if empty, so if the current DB was seeded prior to adding Ariston/Thermowatt/H.Essers/Igeam/Omnia (13 total), those five would be missing. On this env they are present. Consider a lightweight migration that inserts missing default logos by name to keep prod aligned."
+  ],
+  "updated_files": ["/app/backend/tests/test_logos_and_content.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100%"},
+  "test_credentials": "admin@emsafetygroup.it / EmSafety2026! and cliente@emsafetygroup.it / Cliente2026!",
+  "seed_data_creation": "Created and deleted TEST_QA_UILogo (via UI), TEST_QA_Logo (via API), TEST_QA_reg inquiry — all cleaned up. Site-content override home.hero.title1 was set and reset back to default.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest suite: /app/backend/tests/test_logos_and_content.py covers logos + site-content and runs fast (~5s). For UI checks of the client grid images, must scroll section into view then wait ~2-3s (images are lazy-loaded); on initial pageload they report naturalWidth=0. Preview proxy blocks urllib for /assets images (bot protection) — always verify image load in browser context via naturalWidth/complete. Site-content search in Testi Sito matches label/default/current value only, not key path."
+}
