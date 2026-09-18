@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import PageHero from '../components/PageHero';
 import ContactSection from '../components/ContactSection';
+import { useText } from '../lib/content';
 
 export default function ContattiPage() {
   const [toast, setToast] = useState<string | null>(null);
+  const t = useText();
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 4500);
@@ -13,10 +15,10 @@ export default function ContattiPage() {
   return (
     <>
       <PageHero
-        label="Contatti"
-        title="Contattaci per assistenza e"
-        highlight="informazioni sui nostri servizi."
-        subtitle="Hai bisogno di una consulenza o di un preventivo gratuito? Compila il modulo o contattaci direttamente: ti risponderemo entro 24-48 ore lavorative."
+        label={t('page.contatti.label')}
+        title={t('page.contatti.title')}
+        highlight={t('page.contatti.highlight')}
+        subtitle={t('page.contatti.subtitle')}
       />
 
       <ContactSection onSubmitted={showToast} />

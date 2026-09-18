@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ArrowRight, Phone } from 'lucide-react';
 import EmSafetyLogo from './EmSafetyLogo';
+import { COMPANY } from '../data/siteContent';
 
 const NAV: { label: string; route: string }[] = [
   { label: 'Home', route: '/' },
@@ -42,7 +43,7 @@ export default function Header() {
         scrolled ? 'shadow-[0_2px_20px_rgba(11,37,69,0.08)]' : ''
       } border-b border-slate-200/80`}
     >
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 h-[108px] sm:h-[120px] flex items-center justify-between gap-3">
+      <div className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 h-[80px] sm:h-[104px] lg:h-[120px] flex items-center justify-between gap-3">
         <button onClick={() => go('/')} className="text-left flex items-center shrink-0 cursor-pointer hover:opacity-90 transition-opacity" aria-label="E.M Safety Home" data-testid="logo-home-button">
           <EmSafetyLogo variant="navy" size="sm" showTagline showSlogan sloganPlacement="right" />
         </button>
@@ -63,9 +64,9 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          <a href="tel:+3904221456565" data-testid="header-phone" className="hidden md:inline-flex items-center gap-2 font-sans text-[13px] font-semibold whitespace-nowrap shrink-0 text-slate-700 hover:text-[#0b2545] transition-colors">
-            <Phone className="w-4 h-4 text-amber-500" />
-            <span>+39 0422 1456565</span>
+          <a href={COMPANY.phoneHref} data-testid="header-phone" className="hidden md:inline-flex items-center gap-2 font-sans text-[13px] font-semibold whitespace-nowrap shrink-0 text-slate-700 hover:text-[#0b2545] transition-colors">
+            <Phone className="w-4 h-4 text-[#1e6fd9]" />
+            <span>{COMPANY.phone}</span>
           </a>
           <button onClick={() => setOpen(!open)} className="xl:hidden p-2.5 text-[#1e6fd9] hover:bg-[#e8f1fc] rounded-xl border border-[#cfe3f8] cursor-pointer" aria-label="Menu" aria-expanded={open} aria-controls="mobile-navigation" data-testid="mobile-menu-toggle">
             {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -87,7 +88,7 @@ export default function Header() {
             ))}
           </div>
           <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2.5">
-            <a href="tel:+3904221456565" data-testid="mobile-menu-call"
+            <a href={COMPANY.phoneHref} data-testid="mobile-menu-call"
               className="inline-flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#e8f1fc] text-[#155bb0] font-sans text-[14px] font-bold">
               <Phone className="w-4 h-4" /> Chiama ora
             </a>

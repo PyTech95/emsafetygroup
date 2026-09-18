@@ -48,7 +48,7 @@ export default function StoriaDetailPage() {
   }
 
   return (
-    <article className="bg-white pt-[100px] pb-24" data-testid="story-detail">
+    <article className="bg-white pt-[104px] sm:pt-[130px] lg:pt-[150px] pb-24" data-testid="story-detail">
       <div className="max-w-[880px] mx-auto px-4 sm:px-6 lg:px-8">
         <button onClick={() => navigate('/storie')} data-testid="story-back" className="inline-flex items-center gap-2 font-sans text-[13.5px] font-bold text-slate-500 hover:text-[#0b2545] transition-colors mb-8 cursor-pointer">
           <ArrowLeft className="w-4 h-4 text-[#1e6fd9]" /> Tutte le storie

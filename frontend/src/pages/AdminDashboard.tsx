@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   LogOut, Plus, Trash2, UploadCloud, Home, Loader2, CheckCircle2, X, ImageIcon,
   Inbox, Users, MailOpen, Newspaper, LayoutDashboard, Images, Settings, Menu,
-  TrendingUp, Mail, Send, RotateCcw, Pencil,
+  TrendingUp, Mail, Send, RotateCcw, Pencil, Type, BadgeCheck,
 } from 'lucide-react';
+import TextsView from './admin/TextsView';
+import LogosView from './admin/LogosView';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import API, { fileUrl, BACKEND } from '../lib/api';
@@ -18,7 +20,7 @@ interface Client { id: string; email: string; name: string; created_at: string; 
 interface Stats { series: { day: string; visitors: number; inquiries: number }[]; totals: { visitors: number; visits_today: number; inquiries: number; new_inquiries: number; stories: number; clients: number }; }
 interface EmailSettings { sender_email: string; sender_name: string; receiver_email: string; cc_email: string; enabled: boolean; has_app_password: boolean; }
 
-type Section = 'dashboard' | 'media' | 'storie' | 'richieste' | 'clienti' | 'impostazioni';
+type Section = 'dashboard' | 'media' | 'testi' | 'loghi' | 'storie' | 'richieste' | 'clienti' | 'impostazioni';
 const emptyStory = { title: '', sector: '', summary: '', content: '', cover_path: '' as string | null };
 
 const NAVY = '#0b2545';
@@ -51,6 +53,8 @@ export default function AdminDashboard() {
   const navItems: { key: Section; label: string; icon: typeof Home; adminOnly?: boolean; badge?: number }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
     { key: 'media', label: 'Immagini Sito', icon: Images, adminOnly: true },
+    { key: 'testi', label: 'Testi Sito', icon: Type, adminOnly: true },
+    { key: 'loghi', label: 'Loghi & Partner', icon: BadgeCheck, adminOnly: true },
     { key: 'storie', label: 'Storie / Blog', icon: Newspaper },
     { key: 'richieste', label: 'Richieste', icon: Inbox, adminOnly: true, badge: inquiries.filter((q) => q.status === 'nuova').length },
     { key: 'clienti', label: 'Clienti', icon: Users, adminOnly: true },
@@ -109,6 +113,8 @@ export default function AdminDashboard() {
         <main className="flex-1 p-4 sm:p-8 max-w-[1200px] w-full mx-auto">
           {section === 'dashboard' && isAdmin && <DashboardView stats={stats} inquiries={inquiries} onGo={setSection} />}
           {section === 'media' && isAdmin && <MediaView showToast={showToast} />}
+          {section === 'testi' && isAdmin && <TextsView showToast={showToast} />}
+          {section === 'loghi' && isAdmin && <LogosView showToast={showToast} />}
           {section === 'storie' && <StorieView stories={stories} reload={() => { loadStories(); if (isAdmin) loadStats(); }} showToast={showToast} />}
           {section === 'richieste' && isAdmin && <RichiesteView inquiries={inquiries} reload={() => { loadInquiries(); loadStats(); }} showToast={showToast} />}
           {section === 'clienti' && isAdmin && <ClientiView clients={clients} reload={() => { loadClients(); loadStats(); }} showToast={showToast} />}

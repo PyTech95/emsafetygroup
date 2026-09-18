@@ -3,9 +3,11 @@ import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FAQ_DATA } from '../data/coursesData';
 import { soundFX } from '../utils/audio';
+import { useText } from '../lib/content';
 
 export default function FaqSection() {
   const [openId, setOpenId] = useState<string | null>(null);
+  const t = useText();
 
   const toggleFaq = (id: string) => {
     soundFX.playLaser();
@@ -13,18 +15,18 @@ export default function FaqSection() {
   };
 
   return (
-    <section id="faq" className="w-full bg-white py-24 lg:py-28 border-t border-slate-200 relative z-10" data-testid="faq-section">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="faq" className="w-full bg-white py-20 sm:py-24 lg:py-28 border-t border-slate-200 relative z-10" data-testid="faq-section">
+      <div className="max-w-[1440px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#e8f1fc] text-[#0b2545] rounded-full text-[12px] font-sans font-bold uppercase tracking-widest mb-3 border border-[#cfe3f8] shadow-2xs">
             <span className="w-2 h-2 rounded-full bg-[#1e6fd9]" />
-            <span>FAQ &amp; CHIARIMENTI NORMATIVI</span>
+            <span>{t('home.faq.label')}</span>
           </div>
-          <h2 className="font-serif text-[32px] sm:text-[42px] text-[#0b2545] font-bold mb-3 tracking-tight">
-            Domande frequenti su consulenza e scadenze
+          <h2 className="font-serif text-[28px] sm:text-[42px] text-[#0b2545] font-bold mb-3 tracking-tight">
+            {t('home.faq.title')}
           </h2>
           <p className="font-sans text-[16px] text-slate-600 leading-relaxed">
-            Le risposte operative alle principali richieste che riceviamo quotidianamente da responsabili HR, RSPP e amministratori delegati.
+            {t('home.faq.description')}
           </p>
         </div>
 
@@ -46,7 +48,7 @@ export default function FaqSection() {
                   className="w-full p-6 flex items-center justify-between text-left gap-4 focus:outline-none cursor-pointer"
                 >
                   <span className="font-serif text-[17px] sm:text-[18px] leading-snug text-[#0b2545] font-bold">
-                    {faq.question}
+                    {t(`faq.${faq.id}.question`)}
                   </span>
                   <div
                     className={`w-8 h-8 rounded-xl bg-[#e8f1fc] border border-[#cfe3f8] flex items-center justify-center text-[#0b2545] flex-shrink-0 transition-transform duration-200 ${
@@ -69,7 +71,7 @@ export default function FaqSection() {
                       className="overflow-hidden"
                     >
                       <div className="px-6 pb-6 text-slate-600 font-sans text-[14.5px] leading-relaxed border-t border-slate-100 pt-4">
-                        <p>{faq.answer}</p>
+                        <p>{t(`faq.${faq.id}.answer`)}</p>
                       </div>
                     </motion.div>
                   )}

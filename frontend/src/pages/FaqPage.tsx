@@ -3,6 +3,7 @@ import FaqSection from '../components/FaqSection';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ShieldCheck, Users, Cpu } from 'lucide-react';
+import { useText } from '../lib/content';
 
 const CHALLENGES = [
   {
@@ -24,13 +25,14 @@ const CHALLENGES = [
 
 export default function FaqPage() {
   const navigate = useNavigate();
+  const t = useText();
   return (
     <>
       <PageHero
-        label="FAQ & Chiarimenti"
-        title="Domande frequenti su"
-        highlight="sicurezza e salute sul lavoro."
-        subtitle="Risposte chiare e professionali alle principali domande relative ai nostri servizi di sicurezza sul lavoro."
+        label={t('page.faq.label')}
+        title={t('page.faq.title')}
+        highlight={t('page.faq.highlight')}
+        subtitle={t('page.faq.subtitle')}
       />
 
       <FaqSection />
@@ -40,12 +42,11 @@ export default function FaqPage() {
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mb-12">
             <h2 className="font-display text-[30px] sm:text-[40px] font-extrabold text-[#0b2545] tracking-tight leading-[1.1]">
-              Affrontare le sfide reali della{' '}
-              <span className="text-[#1e6fd9]">sicurezza sul lavoro.</span>
+              {t('page.faq.challengesTitle1')}{' '}
+              <span className="text-[#1e6fd9]">{t('page.faq.challengesTitle2')}</span>
             </h2>
             <p className="font-sans text-[16px] text-slate-600 leading-relaxed mt-4">
-              Identifichiamo i problemi più frequenti in azienda e spieghiamo come i nostri servizi garantiscano
-              soluzioni efficaci e conformi.
+              {t('page.faq.challengesDescription')}
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -72,9 +73,9 @@ export default function FaqPage() {
           <button
             onClick={() => navigate('/contatti')}
             data-testid="faq-contact-cta"
-            className="mt-10 inline-flex items-center gap-2 px-6 py-3.5 bg-[#1e6fd9] hover:bg-[#9ec7f0] text-[#0b2545] font-sans text-[14px] font-bold rounded-full shadow-lg transition-all active:scale-95 cursor-pointer"
+            className="mt-10 inline-flex items-center gap-2 px-6 py-3.5 bg-[#1e6fd9] hover:bg-[#155bb0] text-white font-sans text-[14px] font-bold rounded-full shadow-lg transition-all active:scale-95 cursor-pointer"
           >
-            Richiedi una consulenza personalizzata
+            {t('page.faq.cta')}
           </button>
         </div>
       </section>

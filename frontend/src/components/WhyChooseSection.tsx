@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import SectionLabel from './SectionLabel';
 import { WHY, IMAGES } from '../data/siteContent';
 import { useAsset } from '../lib/assets';
+import { useText } from '../lib/content';
 
 interface WhyProps {
   onNavigate: (id: string) => void;
@@ -10,9 +11,10 @@ interface WhyProps {
 
 export default function WhyChooseSection({ onNavigate }: WhyProps) {
   const asset = useAsset();
+  const t = useText();
   return (
-    <section id="perche-noi" className="bg-slate-50 py-24 lg:py-28 border-y border-slate-200" data-testid="why-section">
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="perche-noi" className="bg-slate-50 py-20 sm:py-24 lg:py-28 border-y border-slate-200" data-testid="why-section">
+      <div className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* Image */}
           <motion.div
@@ -26,7 +28,7 @@ export default function WhyChooseSection({ onNavigate }: WhyProps) {
               <img
                 src={asset(IMAGES.training)}
                 alt="Aula di formazione E.M Safety"
-                className="w-full h-[420px] object-cover"
+                className="w-full h-[280px] sm:h-[360px] lg:h-[420px] object-cover"
                 loading="lazy"
               />
             </div>
@@ -45,13 +47,12 @@ export default function WhyChooseSection({ onNavigate }: WhyProps) {
 
           {/* Content */}
           <div className="lg:col-span-7 order-2">
-            <SectionLabel>Perché Scegliere E.M Safety</SectionLabel>
-            <h2 className="font-display text-[34px] sm:text-[44px] font-extrabold text-[#0b2545] tracking-tight leading-[1.08] mt-5">
-              La vostra tranquillità, il nostro impegno.
+            <SectionLabel>{t('home.why.label')}</SectionLabel>
+            <h2 className="font-display text-[30px] sm:text-[44px] font-extrabold text-[#0b2545] tracking-tight leading-[1.08] mt-5">
+              {t('home.why.title')}
             </h2>
             <p className="font-sans text-[16px] text-slate-600 leading-relaxed mt-5 max-w-xl">
-              Scegliere E.M Safety significa affidarsi a un partner serio e competente per la sicurezza e la formazione
-              della vostra azienda.
+              {t('home.why.description')}
             </p>
 
             <div className="grid sm:grid-cols-2 gap-x-8 gap-y-6 mt-9">
@@ -71,8 +72,8 @@ export default function WhyChooseSection({ onNavigate }: WhyProps) {
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="font-display text-[16.5px] font-bold text-[#0b2545]">{w.title}</h3>
-                      <p className="font-sans text-[13.5px] text-slate-500 leading-relaxed mt-1">{w.text}</p>
+                      <h3 className="font-display text-[16.5px] font-bold text-[#0b2545]">{t(`why.${i}.title`)}</h3>
+                      <p className="font-sans text-[13.5px] text-slate-600 leading-relaxed mt-1">{t(`why.${i}.text`)}</p>
                     </div>
                   </motion.div>
                 );
@@ -84,7 +85,7 @@ export default function WhyChooseSection({ onNavigate }: WhyProps) {
               data-testid="why-cta-quote"
               className="group mt-10 inline-flex items-center gap-2 px-6 py-3.5 bg-[#0b2545] hover:bg-[#07192e] text-white font-sans text-[14.5px] font-bold rounded-full shadow-lg transition-all active:scale-95 border-b-2 border-[#1e6fd9] cursor-pointer"
             >
-              Parliamo del vostro progetto
+              {t('home.why.cta')}
               <ArrowRight className="w-4 h-4 text-[#1e6fd9] transition-transform group-hover:translate-x-1" />
             </button>
           </div>

@@ -587,6 +587,144 @@ async def reset_site_asset(data: AssetKey, admin: dict = Depends(require_admin))
     await db.site_assets.delete_one({"key": data.key})
     return {"ok": True}
 
+# ---------------------------------------------------------------- Site content (editable texts)
+class ContentInput(BaseModel):
+    items: dict
+
+@api_router.get("/site-content")
+async def get_site_content():
+    docs = await db.site_content.find({}).to_list(10000)
+    return {d["key"]: d["value"] for d in docs}
+
+@api_router.put("/site-content")
+async def put_site_content(data: ContentInput, admin: dict = Depends(require_admin)):
+    now = datetime.now(timezone.utc).isoformat()
+    for key, value in data.items.items():
+        await db.site_content.replace_one({"key": key}, {"key": key, "value": str(value), "updated_at": now}, upsert=True)
+    return {"ok": True, "count": len(data.items)}
+
+@api_router.post("/site-content/reset")
+async def reset_site_content(data: AssetKey, admin: dict = Depends(require_admin)):
+    await db.site_content.delete_one({"key": data.key})
+    return {"ok": True}
+
+# ---------------------------------------------------------------- Logos (clients / group / affiliations)
+LOGO_SECTIONS = ("clients", "group", "affiliations")
+
+DEFAULT_LOGOS = {
+    "clients": [
+        ("Ecoflam", "/assets/images/clients/ecoflam.png", "", False),
+        ("Brivio & Viganò", "/assets/images/clients/brivio-vigano.png", "", False),
+        ("SITA", "/assets/images/clients/sita.png", "", False),
+        ("GXO", "/assets/images/clients/gxo.png", "", False),
+        ("Elco", "/assets/images/clients/elco.png", "", False),
+        ("SIMI Group", "/assets/images/clients/simi-group.png", "", True),
+        ("Auto Ghinzani", "/assets/images/clients/autoghinzani.png", "", False),
+        ("SFRE", "/assets/images/clients/sfre.png", "", False),
+        ("Ariston Group", "/assets/images/clients/ariston-group.png", "", False),
+        ("Thermowatt", "/assets/images/clients/thermowatt.png", "", False),
+        ("H.Essers", "/assets/images/clients/hessers.png", "", False),
+        ("Igeam Consulting", "/assets/images/clients/igeam.png", "", False),
+        ("Omnia Professional Advisor", "/assets/images/clients/omnia.png", "", False),
+    ],
+    "group": [
+        ("SA.R.M.ED Safety", "/assets/images/group/sarmed-safety.png", "Consulenza e formazione per la sicurezza sul lavoro, D.Lgs 81/08.", False),
+        ("Cruscotto SGI", "/assets/images/group/cruscotto-sgi.png", "La piattaforma digitale per governare i Sistemi di Gestione Integrati.", False),
+        ("SA.R.M.ED Engineering", "/assets/images/group/sarmed-engineering.png", "Ingegneria e progettazione tecnica al servizio dell\u2019impresa.", False),
+        ("EM Consulting", "/assets/images/group/em-consulting.png", "Advisory strategico, conformità normativa e sviluppo organizzativo.", False),
+    ],
+    "affiliations": [
+        ("ANFOS", "/assets/images/anfos.png", "Centro di Formazione — Associazione Nazionale Formatori della Sicurezza sul Lavoro (L. 4/2013).", False),
+        ("O.P.N. Italia Lavoro", "/assets/images/opn.png", "Organismo Paritetico Nazionale per la salute e sicurezza nei luoghi di lavoro.", False),
+        ("DAN Partner", "/assets/images/dan.png", "Partner ufficiale Divers Alert Network per la sicurezza e il primo soccorso.", False),
+    ],
+}
+
+def logo_public(d: dict) -> dict:
+    return {"id": d["id"], "section": d["section"], "name": d.get("name", ""),
+            "description": d.get("description", ""), "image_url": d.get("image_url", ""),
+            "dark": bool(d.get("dark", False)), "order": d.get("order", 0)}
+
+async def store_site_file(file: UploadFile, folder: str) -> str:
+    ext = (file.filename.rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin")
+    content_type = MIME_TYPES.get(ext, file.content_type or "application/octet-stream")
+    path = f"{APP_NAME}/{folder}/{uuid.uuid4()}.{ext}"
+    data = await file.read()
+    result = put_object(path, data, content_type)
+    canonical = result.get("path", path)
+    await db.files.insert_one({
+        "id": str(uuid.uuid4()), "storage_path": canonical, "original_filename": file.filename,
+        "content_type": content_type, "size": result.get("size", len(data)),
+        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return f"/api/files/{canonical}"
+
+@api_router.get("/logos")
+async def list_logos(section: Optional[str] = None):
+    query = {"section": section} if section else {}
+    docs = await db.logos.find(query).sort([("order", 1), ("created_at", 1)]).to_list(1000)
+    return [logo_public(d) for d in docs]
+
+@api_router.post("/logos")
+async def create_logo(section: str = Form(...), name: str = Form(...), description: str = Form(""),
+                      dark: bool = Form(False), file: UploadFile = File(...), admin: dict = Depends(require_admin)):
+    if section not in LOGO_SECTIONS:
+        raise HTTPException(status_code=400, detail="Sezione non valida")
+    if not name.strip():
+        raise HTTPException(status_code=400, detail="Il nome è obbligatorio")
+    url = await store_site_file(file, "logos")
+    count = await db.logos.count_documents({"section": section})
+    doc = {"id": str(uuid.uuid4()), "section": section, "name": name.strip(), "description": description.strip(),
+           "image_url": url, "dark": dark, "order": count,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.logos.insert_one(doc)
+    return logo_public(doc)
+
+@api_router.put("/logos/{logo_id}")
+async def update_logo(logo_id: str, name: Optional[str] = Form(None), description: Optional[str] = Form(None),
+                      dark: Optional[bool] = Form(None), file: Optional[UploadFile] = File(None),
+                      admin: dict = Depends(require_admin)):
+    update: dict = {}
+    if name is not None:
+        update["name"] = name.strip()
+    if description is not None:
+        update["description"] = description.strip()
+    if dark is not None:
+        update["dark"] = dark
+    if file is not None and file.filename:
+        update["image_url"] = await store_site_file(file, "logos")
+    if not update:
+        raise HTTPException(status_code=400, detail="Nessuna modifica")
+    res = await db.logos.update_one({"id": logo_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Logo non trovato")
+    return logo_public(await db.logos.find_one({"id": logo_id}))
+
+@api_router.delete("/logos/{logo_id}")
+async def delete_logo(logo_id: str, admin: dict = Depends(require_admin)):
+    res = await db.logos.delete_one({"id": logo_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Logo non trovato")
+    return {"ok": True}
+
+@api_router.post("/logos/reorder")
+async def reorder_logos(data: ReorderInput, admin: dict = Depends(require_admin)):
+    for index, lid in enumerate(data.ids):
+        await db.logos.update_one({"id": lid}, {"$set": {"order": index}})
+    return {"ok": True}
+
+async def seed_logos():
+    for section, items in DEFAULT_LOGOS.items():
+        if await db.logos.count_documents({"section": section}) > 0:
+            continue
+        now = datetime.now(timezone.utc).isoformat()
+        await db.logos.insert_many([
+            {"id": str(uuid.uuid4()), "section": section, "name": name, "description": desc,
+             "image_url": url, "dark": dark, "order": i, "created_at": now}
+            for i, (name, url, desc, dark) in enumerate(items)
+        ])
+        logger.info("Seeded %d logos for %s", len(items), section)
+
 # ---------------------------------------------------------------- Visitor tracking + stats
 class VisitInput(BaseModel):
     path: str = "/"
@@ -726,6 +864,9 @@ async def on_startup():
     await db.inquiries.create_index("id", unique=True)
     await seed_admin()
     await seed_client()
+    await db.logos.create_index("id", unique=True)
+    await db.site_content.create_index("key", unique=True)
+    await seed_logos()
     try:
         init_storage()
         logger.info("Object storage initialized")

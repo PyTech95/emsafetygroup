@@ -2,22 +2,23 @@ import { motion } from 'motion/react';
 import SectionLabel from './SectionLabel';
 import { METHOD, IMAGES } from '../data/siteContent';
 import { useAsset } from '../lib/assets';
+import { useText } from '../lib/content';
 
 export default function MethodSection() {
   const asset = useAsset();
+  const t = useText();
   return (
     <section id="metodo" className="relative bg-[#f0f9ff] py-24 lg:py-28 overflow-hidden" data-testid="method-section">
-      <div className="relative max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
           {/* Left intro + image */}
           <div className="min-w-0 lg:col-span-5">
-            <SectionLabel>Il Nostro Metodo</SectionLabel>
-            <h2 className="font-display text-[34px] sm:text-[44px] font-extrabold text-neutral-900 tracking-tight leading-[1.08] mt-5">
-              Dall&apos;analisi alla conformità, un percorso trasparente.
+            <SectionLabel>{t('method.label')}</SectionLabel>
+            <h2 className="font-display text-[30px] sm:text-[44px] font-extrabold text-neutral-900 tracking-tight leading-[1.08] mt-5">
+              {t('method.title')}
             </h2>
             <p className="font-sans text-[16px] text-slate-600 leading-relaxed mt-5">
-              Un approccio chiaro in cinque fasi, basato su ascolto, competenza tecnica e soluzioni su misura, senza
-              sorprese e senza costi occulti.
+              {t('method.description')}
             </p>
             <div className="mt-8 rounded-3xl overflow-hidden ring-1 ring-black/5 shadow-xl">
               <img
@@ -54,8 +55,8 @@ export default function MethodSection() {
                       </span>
                     </div>
                     <div className="min-w-0 flex-1 break-words">
-                      <h3 data-testid={`method-step-title-${i}`} className="font-display text-[18px] sm:text-[19px] font-bold text-white">{step.title}</h3>
-                      <p data-testid={`method-step-description-${i}`} className="font-sans text-[14px] text-slate-600 leading-relaxed mt-1.5">{step.text}</p>
+                      <h3 data-testid={`method-step-title-${i}`} className="font-display text-[18px] sm:text-[19px] font-bold text-[#0b2545]">{t(`method.${i}.title`)}</h3>
+                      <p data-testid={`method-step-description-${i}`} className="font-sans text-[14px] text-slate-600 leading-relaxed mt-1.5">{t(`method.${i}.text`)}</p>
                     </div>
                   </motion.div>
                 );

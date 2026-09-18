@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import Lenis from 'lenis';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AssetsProvider } from './lib/assets';
+import { ContentProvider } from './lib/content';
 import API from './lib/api';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
@@ -68,6 +69,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AssetsProvider>
+          <ContentProvider>
           <VisitTracker />
           <Routes>
             <Route element={<Layout />}>
@@ -91,6 +93,7 @@ export default function App() {
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ContentProvider>
         </AssetsProvider>
       </AuthProvider>
     </BrowserRouter>

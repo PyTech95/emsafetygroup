@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { ArrowRight, CalendarDays, Building2, BookOpen } from 'lucide-react';
 import PageHero from '../components/PageHero';
 import API, { fileUrl } from '../lib/api';
+import { useText } from '../lib/content';
 
 interface Story {
   id: string;
@@ -24,6 +25,7 @@ function formatDate(iso: string) {
 
 export default function StoriePage() {
   const [stories, setStories] = useState<Story[] | null>(null);
+  const t = useText();
 
   useEffect(() => {
     API.get('/stories').then((r) => setStories(r.data)).catch(() => setStories([]));
@@ -32,10 +34,10 @@ export default function StoriePage() {
   return (
     <>
       <PageHero
-        label="Storie di Successo"
-        title="I risultati che costruiamo,"
-        highlight="insieme ai nostri clienti."
-        subtitle="Progetti reali di consulenza e formazione: come abbiamo aiutato aziende di ogni settore a raggiungere la piena conformità e a rendere la sicurezza un valore aggiunto."
+        label={t('page.storie.label')}
+        title={t('page.storie.title')}
+        highlight={t('page.storie.highlight')}
+        subtitle={t('page.storie.subtitle')}
       />
       <section className="bg-white py-20 lg:py-24 min-h-[50vh]" data-testid="storie-page">
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">

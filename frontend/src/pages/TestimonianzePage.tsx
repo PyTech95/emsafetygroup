@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Quote, ShieldCheck, Award, BadgeCheck, Medal, ArrowRight } from 'lucide-react';
 import PageHero from '../components/PageHero';
+import { useText } from '../lib/content';
 
 const CASES = [
   {
@@ -30,13 +31,14 @@ const CERTS = [
 
 export default function TestimonianzePage() {
   const navigate = useNavigate();
+  const t = useText();
   return (
     <>
       <PageHero
-        label="Testimonianze"
-        title="Testimonianze autentiche dai"
-        highlight="clienti soddisfatti."
-        subtitle="Progetti reali di consulenza e formazione: come abbiamo aiutato le aziende a raggiungere conformità, efficienza e piena tutela dei lavoratori."
+        label={t('page.test.label')}
+        title={t('page.test.title')}
+        highlight={t('page.test.highlight')}
+        subtitle={t('page.test.subtitle')}
       />
 
       {/* Highlighted testimonial */}
@@ -47,12 +49,11 @@ export default function TestimonianzePage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-60px' }}
             transition={{ duration: 0.6 }}
-            className="relative bg-[#0b2545] rounded-[28px] p-10 lg:p-14 text-white shadow-2xl overflow-hidden"
+            className="relative bg-[#0b2545] rounded-[28px] p-7 sm:p-10 lg:p-14 text-white shadow-2xl overflow-hidden"
           >
             <Quote className="w-14 h-14 text-[#1e6fd9]/30 absolute top-6 right-8" />
-            <p className="font-display text-[22px] sm:text-[28px] font-bold leading-snug tracking-tight relative z-10">
-              "La nostra collaborazione con E.M Safety ha garantito soluzioni precise e conformi, migliorando
-              significativamente la sicurezza aziendale."
+            <p className="font-display text-[20px] sm:text-[28px] font-bold leading-snug tracking-tight relative z-10">
+              {t('page.test.quote')}
             </p>
             <div className="mt-8 flex items-center gap-4">
               <img
@@ -62,8 +63,8 @@ export default function TestimonianzePage() {
                 loading="lazy"
               />
               <div>
-                <div className="font-display text-[17px] font-bold">Marco Rossi</div>
-                <div className="font-sans text-[13px] text-[#9ec7f0]">Responsabile Sicurezza Aziendale</div>
+                <div className="font-display text-[17px] font-bold">{t('page.test.quoteName')}</div>
+                <div className="font-sans text-[13px] text-[#9ec7f0]">{t('page.test.quoteRole')}</div>
               </div>
             </div>
           </motion.div>
@@ -101,12 +102,11 @@ export default function TestimonianzePage() {
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mb-12">
             <h2 className="font-display text-[30px] sm:text-[40px] font-extrabold text-[#0b2545] tracking-tight leading-[1.1]">
-              Affidabilità comprovata,{' '}
-              <span className="text-[#1e6fd9]">sicurezza garantita.</span>
+              {t('page.test.certsTitle1')}{' '}
+              <span className="text-[#1e6fd9]">{t('page.test.certsTitle2')}</span>
             </h2>
             <p className="font-sans text-[16px] text-slate-600 leading-relaxed mt-4">
-              Le nostre certificazioni principali e i riconoscimenti ottenuti nel settore testimoniano la nostra
-              professionalità e serietà.
+              {t('page.test.certsDescription')}
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -135,7 +135,7 @@ export default function TestimonianzePage() {
             data-testid="testimonianze-cta"
             className="mt-10 inline-flex items-center gap-2 px-6 py-3.5 bg-[#0b2545] hover:bg-[#07192e] text-white font-sans text-[14px] font-bold rounded-full shadow-md transition-all active:scale-95 cursor-pointer"
           >
-            Diventa il prossimo caso di successo
+            {t('page.test.cta')}
             <ArrowRight className="w-4 h-4 text-[#1e6fd9]" />
           </button>
         </div>

@@ -4,6 +4,7 @@ import SectionLabel from './SectionLabel';
 import Security360Graphic from './Security360Graphic';
 import { SERVICES } from '../data/siteContent';
 import { useAsset } from '../lib/assets';
+import { useText } from '../lib/content';
 
 interface ServicesProps {
   onNavigate: (id: string) => void;
@@ -11,19 +12,19 @@ interface ServicesProps {
 
 export default function ServicesSection({ onNavigate }: ServicesProps) {
   const asset = useAsset();
+  const t = useText();
   return (
-    <section id="servizi" className="bg-white pt-24 lg:pt-28 pb-20 lg:pb-24" data-testid="services-section">
-      <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="servizi" className="bg-white pt-20 sm:pt-24 lg:pt-28 pb-20 lg:pb-24" data-testid="services-section">
+      <div className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-16">
           <div className="max-w-2xl">
-            <SectionLabel>I Nostri Servizi</SectionLabel>
-            <h2 className="font-display text-[34px] sm:text-[44px] font-extrabold text-[#0b2545] tracking-tight leading-[1.08] mt-5">
-              Progettiamo la vostra sicurezza,{' '}
-              <span className="text-[#1e6fd9]">a 360°.</span>
+            <SectionLabel>{t('home.services.label')}</SectionLabel>
+            <h2 className="font-display text-[30px] sm:text-[44px] font-extrabold text-[#0b2545] tracking-tight leading-[1.08] mt-5">
+              {t('home.services.title1')}{' '}
+              <span className="text-[#1e6fd9]">{t('home.services.title2')}</span>
             </h2>
             <p className="font-sans text-[16.5px] text-slate-600 leading-relaxed mt-5">
-              Un unico partner per consulenza, sistemi di gestione, valutazioni tecniche e formazione. Soluzioni complete
-              per garantire conformità, efficienza e tutela dei lavoratori.
+              {t('home.services.description')}
             </p>
           </div>
           <div className="order-first lg:order-last">
@@ -58,15 +59,15 @@ export default function ServicesSection({ onNavigate }: ServicesProps) {
                 </div>
 
                 <div className="p-7 pt-10 flex flex-col flex-1">
-                  <h3 className="font-display text-[20px] font-bold text-[#0b2545] leading-snug">{s.title}</h3>
-                  <p className="font-sans text-[13px] font-semibold text-[#155bb0] mt-1">{s.tagline}</p>
-                  <p className="font-sans text-[14px] text-slate-600 leading-relaxed mt-3">{s.description}</p>
+                  <h3 className="font-display text-[20px] font-bold text-[#0b2545] leading-snug">{t(`services.${s.id}.title`)}</h3>
+                  <p className="font-sans text-[13px] font-semibold text-[#155bb0] mt-1">{t(`services.${s.id}.tagline`)}</p>
+                  <p className="font-sans text-[14px] text-slate-600 leading-relaxed mt-3">{t(`services.${s.id}.description`)}</p>
 
                   <ul className="mt-5 space-y-2 flex-1">
-                    {s.points.map((p) => (
+                    {s.points.map((p, pi) => (
                       <li key={p} className="flex items-start gap-2.5 font-sans text-[13.5px] text-slate-700">
                         <Check className="w-4 h-4 text-[#1e6fd9] mt-0.5 shrink-0" />
-                        <span>{p}</span>
+                        <span>{t(`services.${s.id}.points.${pi}`)}</span>
                       </li>
                     ))}
                   </ul>
@@ -76,7 +77,7 @@ export default function ServicesSection({ onNavigate }: ServicesProps) {
                     data-testid={`service-cta-${s.id}`}
                     className="mt-6 inline-flex items-center gap-2 font-sans text-[13.5px] font-bold text-[#1e6fd9] hover:gap-3 transition-all cursor-pointer"
                   >
-                    Richiedi informazioni
+                    {t('home.services.cta')}
                     <ArrowRight className="w-4 h-4 text-[#1e6fd9]" />
                   </button>
                 </div>
