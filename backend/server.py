@@ -762,8 +762,483 @@ async def admin_stats(admin: dict = Depends(require_admin)):
             "new_inquiries": await db.inquiries.count_documents({"is_deleted": {"$ne": True}, "status": "nuova"}),
             "stories": await db.stories.count_documents({"is_deleted": {"$ne": True}}),
             "clients": await db.users.count_documents({"role": "client"}),
+            "new_enrollments": await db.enrollments.count_documents({"is_deleted": {"$ne": True}, "status": "nuova"}),
+            "certificates": await db.certificates.count_documents({"is_deleted": {"$ne": True}}),
         },
     }
+
+# ================================================================ Formazione: date helpers
+import secrets as _secrets
+from datetime import date as _date
+
+try:
+    from zoneinfo import ZoneInfo as _ZoneInfo
+    _ROME = _ZoneInfo("Europe/Rome")
+except Exception:  # tzdata missing → fall back to UTC
+    _ROME = timezone.utc
+
+def _today() -> _date:
+    return datetime.now(_ROME).date()
+
+def _parse_date(value: Optional[str], field: str, required: bool = True) -> Optional[_date]:
+    """Accepts YYYY-MM-DD or DD/MM/YYYY. Returns a date or raises 400 with an Italian message."""
+    v = (value or "").strip()
+    if not v:
+        if required:
+            raise HTTPException(status_code=400, detail=f"Campo obbligatorio mancante: {field}")
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(v, fmt).date()
+        except ValueError:
+            continue
+    raise HTTPException(status_code=400, detail=f"Data non valida per '{field}': usa il formato GG/MM/AAAA")
+
+def _add_years(d: _date, years: int) -> _date:
+    try:
+        return d.replace(year=d.year + years)
+    except ValueError:  # 29 febbraio → 28 febbraio
+        return d.replace(year=d.year + years, day=28)
+
+def _clean(v: Optional[str], limit: int = 300) -> str:
+    return (v or "").strip()[:limit]
+
+_EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# ================================================================ Attestati (certificati) + verifica QR
+_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"  # niente 0/O/1/I per evitare errori di lettura
+
+def _new_cert_code(year: int) -> str:
+    rnd = "".join(_secrets.choice(_CODE_ALPHABET) for _ in range(8))
+    return f"EMS-{year}-{rnd[:4]}-{rnd[4:]}"
+
+def _normalize_code(code: str) -> str:
+    return _re.sub(r"\s+", "", (code or "")).upper()
+
+class CertificateInput(BaseModel):
+    first_name: str
+    last_name: str
+    birth_place: str
+    birth_date: str
+    course_type: str
+    course_date: str
+    course_end_date: Optional[str] = ""
+    course_hours: Optional[float] = None
+    validity_years: Optional[int] = None   # None / 0 = nessuna scadenza
+    tax_code: Optional[str] = ""
+    notes: Optional[str] = ""              # nota interna, non pubblica
+
+class CertificateBulkInput(BaseModel):
+    items: List[CertificateInput]
+
+class RevokeInput(BaseModel):
+    revoked: bool
+
+def _cert_fields(data: CertificateInput) -> dict:
+    first, last = _clean(data.first_name, 80), _clean(data.last_name, 80)
+    place, ctype = _clean(data.birth_place, 120), _clean(data.course_type, 200)
+    if not first or not last:
+        raise HTTPException(status_code=400, detail="Nome e cognome sono obbligatori")
+    if not place:
+        raise HTTPException(status_code=400, detail="Il luogo di nascita è obbligatorio")
+    if not ctype:
+        raise HTTPException(status_code=400, detail="La tipologia del corso è obbligatoria")
+    birth = _parse_date(data.birth_date, "data di nascita")
+    cdate = _parse_date(data.course_date, "data del corso")
+    cend = _parse_date(data.course_end_date, "data fine corso", required=False)
+    if cend and cend < cdate:
+        raise HTTPException(status_code=400, detail="La data di fine corso è precedente alla data di inizio")
+    if birth >= cdate:
+        raise HTTPException(status_code=400, detail="La data di nascita deve precedere la data del corso")
+    validity = data.validity_years or 0
+    if validity < 0 or validity > 50:
+        raise HTTPException(status_code=400, detail="Validità non valida")
+    hours = data.course_hours if data.course_hours and data.course_hours > 0 else None
+    last_day = cend or cdate
+    return {
+        "first_name": first, "last_name": last, "birth_place": place,
+        "birth_date": birth.isoformat(), "course_type": ctype,
+        "course_date": cdate.isoformat(), "course_end_date": cend.isoformat() if cend else "",
+        "course_hours": hours, "validity_years": validity or None,
+        "expiry_date": _add_years(last_day, validity).isoformat() if validity else "",
+        "tax_code": _clean(data.tax_code, 20).upper(), "notes": _clean(data.notes, 1000),
+    }
+
+def _cert_status(doc: dict) -> str:
+    if doc.get("revoked"):
+        return "revocato"
+    exp = doc.get("expiry_date")
+    if exp and exp < _today().isoformat():
+        return "scaduto"
+    return "valido"
+
+def certificate_public(doc: dict) -> dict:
+    """Dati mostrati a chiunque scansioni il QR (niente note interne né codice fiscale)."""
+    return {
+        "code": doc["code"], "first_name": doc.get("first_name", ""), "last_name": doc.get("last_name", ""),
+        "birth_place": doc.get("birth_place", ""), "birth_date": doc.get("birth_date", ""),
+        "course_type": doc.get("course_type", ""), "course_date": doc.get("course_date", ""),
+        "course_end_date": doc.get("course_end_date", ""), "course_hours": doc.get("course_hours"),
+        "validity_years": doc.get("validity_years"), "expiry_date": doc.get("expiry_date", ""),
+        "status": _cert_status(doc), "issuer": "E.M. Safety S.r.l. — Centro di Formazione",
+        "issued_at": (doc.get("created_at") or "")[:10],
+    }
+
+def certificate_admin(doc: dict) -> dict:
+    out = certificate_public(doc)
+    out.update({"id": doc["id"], "tax_code": doc.get("tax_code", ""), "notes": doc.get("notes", ""),
+                "revoked": bool(doc.get("revoked")), "course_id": doc.get("course_id"),
+                "enrollment_id": doc.get("enrollment_id"), "created_at": doc.get("created_at")})
+    return out
+
+async def _insert_certificate(fields: dict, extra: Optional[dict] = None) -> dict:
+    year = int(fields["course_date"][:4])
+    for _ in range(10):
+        code = _new_cert_code(year)
+        if not await db.certificates.find_one({"code": code}):
+            break
+    doc = {"id": str(uuid.uuid4()), "code": code, **fields, "revoked": False, "is_deleted": False,
+           "created_at": datetime.now(timezone.utc).isoformat(), **(extra or {})}
+    await db.certificates.insert_one(doc)
+    return doc
+
+@api_router.get("/certificates/verify/{code}")
+async def verify_certificate(code: str):
+    doc = await db.certificates.find_one({"code": _normalize_code(code), "is_deleted": {"$ne": True}})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Nessun attestato trovato con questo codice")
+    return certificate_public(doc)
+
+@api_router.get("/admin/certificates")
+async def list_certificates(q: Optional[str] = None, admin: dict = Depends(require_admin)):
+    query: dict = {"is_deleted": {"$ne": True}}
+    if q and q.strip():
+        rx = {"$regex": _re.escape(q.strip()), "$options": "i"}
+        query["$or"] = [{"code": rx}, {"first_name": rx}, {"last_name": rx}, {"course_type": rx}, {"tax_code": rx}]
+    docs = await db.certificates.find(query).sort("created_at", -1).to_list(5000)
+    return [certificate_admin(d) for d in docs]
+
+@api_router.post("/admin/certificates")
+async def create_certificate(data: CertificateInput, admin: dict = Depends(require_admin)):
+    return certificate_admin(await _insert_certificate(_cert_fields(data)))
+
+@api_router.post("/admin/certificates/bulk")
+async def create_certificates_bulk(data: CertificateBulkInput, admin: dict = Depends(require_admin)):
+    if not data.items:
+        raise HTTPException(status_code=400, detail="Nessun partecipante da salvare")
+    if len(data.items) > 500:
+        raise HTTPException(status_code=400, detail="Massimo 500 attestati per volta")
+    prepared, errors = [], []
+    for i, item in enumerate(data.items):
+        try:
+            prepared.append(_cert_fields(item))
+        except HTTPException as e:
+            errors.append({"row": i + 1, "detail": e.detail})
+    if errors:  # tutto o niente: nessun salvataggio parziale
+        raise HTTPException(status_code=400, detail="; ".join(f"Riga {e['row']}: {e['detail']}" for e in errors[:10]))
+    created = [certificate_admin(await _insert_certificate(f)) for f in prepared]
+    return {"created": created}
+
+@api_router.put("/admin/certificates/{cert_id}")
+async def update_certificate(cert_id: str, data: CertificateInput, admin: dict = Depends(require_admin)):
+    res = await db.certificates.update_one({"id": cert_id, "is_deleted": {"$ne": True}}, {"$set": _cert_fields(data)})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Attestato non trovato")
+    return certificate_admin(await db.certificates.find_one({"id": cert_id}))
+
+@api_router.patch("/admin/certificates/{cert_id}/revoke")
+async def revoke_certificate(cert_id: str, data: RevokeInput, admin: dict = Depends(require_admin)):
+    res = await db.certificates.update_one({"id": cert_id, "is_deleted": {"$ne": True}}, {"$set": {"revoked": data.revoked}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Attestato non trovato")
+    return certificate_admin(await db.certificates.find_one({"id": cert_id}))
+
+@api_router.delete("/admin/certificates/{cert_id}")
+async def delete_certificate(cert_id: str, admin: dict = Depends(require_admin)):
+    res = await db.certificates.update_one({"id": cert_id}, {"$set": {"is_deleted": True}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Attestato non trovato")
+    await db.enrollments.update_many({"certificate_id": cert_id}, {"$set": {"certificate_id": None}})
+    return {"ok": True}
+
+# ================================================================ Corsi in partenza + iscrizioni
+class CourseInput(BaseModel):
+    title: str
+    subtitle: Optional[str] = ""
+    kind: Optional[str] = ""               # es. "Aggiornamento", "Formazione base"
+    hours: Optional[float] = None
+    modality: Optional[str] = "In presenza"
+    legal_ref: Optional[str] = ""
+    start_date: str
+    end_date: Optional[str] = ""
+    schedule: Optional[str] = ""           # es. "8:00–12:00"
+    location: Optional[str] = ""
+    trainer: Optional[str] = ""
+    audience: Optional[str] = ""
+    program: List[str] = []
+    program_note: Optional[str] = ""
+    final_test: Optional[str] = ""
+    certificate_note: Optional[str] = ""
+    validity_years: Optional[int] = None
+    seats: Optional[int] = None            # None / 0 = posti illimitati
+    price: Optional[str] = ""
+    registration_open: bool = True
+    published: bool = True
+
+class EnrollmentInput(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    phone: str
+    birth_place: str
+    birth_date: str
+    company: Optional[str] = ""
+    tax_code: Optional[str] = ""
+    notes: Optional[str] = ""
+    privacy: bool = False
+    website: Optional[str] = ""            # honeypot anti-spam: deve restare vuoto
+
+class EnrollmentStatusInput(BaseModel):
+    status: str
+
+def _course_fields(data: CourseInput) -> dict:
+    title = _clean(data.title, 200)
+    if not title:
+        raise HTTPException(status_code=400, detail="Il titolo del corso è obbligatorio")
+    start = _parse_date(data.start_date, "data di inizio")
+    end = _parse_date(data.end_date, "data di fine", required=False)
+    if end and end < start:
+        raise HTTPException(status_code=400, detail="La data di fine è precedente alla data di inizio")
+    seats = data.seats if data.seats and data.seats > 0 else None
+    validity = data.validity_years if data.validity_years and data.validity_years > 0 else None
+    return {
+        "title": title, "subtitle": _clean(data.subtitle, 600), "kind": _clean(data.kind, 60),
+        "hours": data.hours if data.hours and data.hours > 0 else None,
+        "modality": _clean(data.modality, 80), "legal_ref": _clean(data.legal_ref, 200),
+        "start_date": start.isoformat(), "end_date": end.isoformat() if end and end != start else "",
+        "schedule": _clean(data.schedule, 120), "location": _clean(data.location, 200),
+        "trainer": _clean(data.trainer, 160), "audience": _clean(data.audience, 400),
+        "program": [p.strip()[:300] for p in data.program if p and p.strip()][:40],
+        "program_note": _clean(data.program_note, 200), "final_test": _clean(data.final_test, 600),
+        "certificate_note": _clean(data.certificate_note, 600), "validity_years": validity,
+        "seats": seats, "price": _clean(data.price, 80),
+        "registration_open": bool(data.registration_open), "published": bool(data.published),
+    }
+
+async def _enrolled_count(course_id: str) -> int:
+    return await db.enrollments.count_documents({"course_id": course_id, "is_deleted": {"$ne": True},
+                                                 "status": {"$ne": "annullata"}})
+
+def _course_last_day(doc: dict) -> str:
+    return doc.get("end_date") or doc.get("start_date") or ""
+
+async def course_public(doc: dict) -> dict:
+    enrolled = await _enrolled_count(doc["id"])
+    seats = doc.get("seats")
+    seats_left = max(seats - enrolled, 0) if seats else None
+    upcoming = (doc.get("start_date") or "") >= _today().isoformat()
+    keys = ("title", "subtitle", "kind", "hours", "modality", "legal_ref", "start_date", "end_date", "schedule",
+            "location", "trainer", "audience", "program", "program_note", "final_test", "certificate_note",
+            "validity_years", "seats", "price", "registration_open")
+    out = {"id": doc["id"], **{k: doc.get(k) for k in keys}}
+    out.update({"seats_left": seats_left, "is_full": seats_left == 0 if seats else False,
+                "can_enroll": bool(doc.get("registration_open")) and upcoming and not (seats and seats_left == 0)})
+    return out
+
+async def course_admin(doc: dict) -> dict:
+    out = await course_public(doc)
+    out.update({"published": bool(doc.get("published")), "created_at": doc.get("created_at"),
+                "enrolled": await _enrolled_count(doc["id"]),
+                "new_enrollments": await db.enrollments.count_documents(
+                    {"course_id": doc["id"], "is_deleted": {"$ne": True}, "status": "nuova"})})
+    return out
+
+@api_router.get("/courses")
+async def list_upcoming_courses():
+    today = _today().isoformat()
+    docs = await db.courses.find({"is_deleted": {"$ne": True}, "published": True}).sort("start_date", 1).to_list(500)
+    return [await course_public(d) for d in docs if _course_last_day(d) >= today]
+
+@api_router.get("/courses/{course_id}")
+async def get_course(course_id: str):
+    doc = await db.courses.find_one({"id": course_id, "is_deleted": {"$ne": True}, "published": True})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Corso non trovato")
+    return await course_public(doc)
+
+def _enrollment_email_html(c: dict, e: dict) -> str:
+    def row(label: str, value: str) -> str:
+        v = _escape(value) if value else "—"
+        return (f'<tr><td style="padding:6px 0;color:#71717a;font-size:13px;width:150px;vertical-align:top">{label}</td>'
+                f'<td style="padding:6px 0;font-size:14px;color:#171717">{v}</td></tr>')
+    when = c.get("start_date", "")
+    try:
+        when = datetime.strptime(when, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        pass
+    return (
+        '<table role="presentation" width="100%" style="font-family:Arial,sans-serif;background:#f4f6f8;padding:24px"><tr><td>'
+        '<table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;margin:0 auto">'
+        '<tr><td style="font-size:18px;font-weight:bold;color:#0b2545;padding-bottom:4px">Nuova iscrizione a un corso</td></tr>'
+        f'<tr><td style="font-size:14px;color:#1e6fd9;padding-bottom:14px">{_escape(c.get("title", ""))} — {_escape(when)}</td></tr>'
+        '<tr><td><table role="presentation" width="100%">'
+        + row("Nome", f'{e.get("first_name", "")} {e.get("last_name", "")}')
+        + row("Luogo di nascita", e.get("birth_place", ""))
+        + row("Data di nascita", e.get("birth_date", ""))
+        + row("Codice fiscale", e.get("tax_code", ""))
+        + row("Azienda", e.get("company", ""))
+        + row("Email", e.get("email", ""))
+        + row("Telefono", e.get("phone", ""))
+        + row("Note", e.get("notes", ""))
+        + '</table></td></tr>'
+        '<tr><td style="padding-top:16px;font-size:12px;color:#9ca3af">Trovi tutte le iscrizioni nel pannello admin, sezione Iscrizioni.</td></tr>'
+        '</table></td></tr></table>'
+    )
+
+@api_router.post("/courses/{course_id}/enroll")
+async def enroll_course(course_id: str, data: EnrollmentInput):
+    course = await db.courses.find_one({"id": course_id, "is_deleted": {"$ne": True}, "published": True})
+    if not course:
+        raise HTTPException(status_code=404, detail="Corso non trovato")
+    if (data.website or "").strip():  # bot: risposta finta, nessun salvataggio
+        return {"ok": True}
+    pub = await course_public(course)
+    if not pub["can_enroll"]:
+        raise HTTPException(status_code=409, detail="Le iscrizioni a questo corso sono chiuse o i posti sono esauriti")
+    if not data.privacy:
+        raise HTTPException(status_code=400, detail="È necessario accettare l'informativa privacy")
+    first, last = _clean(data.first_name, 80), _clean(data.last_name, 80)
+    email, phone = _clean(data.email, 160).lower(), _clean(data.phone, 40)
+    place = _clean(data.birth_place, 120)
+    if not first or not last or not place or not phone:
+        raise HTTPException(status_code=400, detail="Compila tutti i campi obbligatori")
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="Indirizzo email non valido")
+    birth = _parse_date(data.birth_date, "data di nascita")
+    if birth >= _today():
+        raise HTTPException(status_code=400, detail="Data di nascita non valida")
+    dup = await db.enrollments.find_one({"course_id": course_id, "email": email, "is_deleted": {"$ne": True},
+                                         "status": {"$ne": "annullata"}, "first_name": first, "last_name": last})
+    if dup:
+        raise HTTPException(status_code=409, detail="Risulti già iscritto/a a questo corso")
+    doc = {"id": str(uuid.uuid4()), "course_id": course_id, "course_title": course.get("title", ""),
+           "course_date": course.get("start_date", ""), "first_name": first, "last_name": last,
+           "email": email, "phone": phone, "birth_place": place, "birth_date": birth.isoformat(),
+           "company": _clean(data.company, 160), "tax_code": _clean(data.tax_code, 20).upper(),
+           "notes": _clean(data.notes, 1000), "status": "nuova", "certificate_id": None,
+           "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.enrollments.insert_one(doc)
+    cfg = await get_email_settings_doc()
+    if cfg and cfg.get("enabled") and cfg.get("app_password_enc") and cfg.get("receiver_email"):
+        try:
+            subject = f"Nuova iscrizione: {course.get('title', '')} — {first} {last}"
+            await _asyncio.to_thread(_smtp_send, cfg, subject, _enrollment_email_html(course, doc))
+        except Exception as e:
+            logger.error("Enrollment notification email failed: %s", type(e).__name__)
+    return {"ok": True}
+
+def enrollment_admin(doc: dict) -> dict:
+    keys = ("course_id", "course_title", "course_date", "first_name", "last_name", "email", "phone",
+            "birth_place", "birth_date", "company", "tax_code", "notes", "status", "certificate_id", "created_at")
+    return {"id": doc["id"], **{k: doc.get(k) for k in keys}}
+
+@api_router.get("/admin/courses")
+async def admin_list_courses(admin: dict = Depends(require_admin)):
+    docs = await db.courses.find({"is_deleted": {"$ne": True}}).sort("start_date", -1).to_list(2000)
+    return [await course_admin(d) for d in docs]
+
+@api_router.post("/admin/courses")
+async def admin_create_course(data: CourseInput, admin: dict = Depends(require_admin)):
+    doc = {"id": str(uuid.uuid4()), **_course_fields(data), "is_deleted": False,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.courses.insert_one(doc)
+    return await course_admin(doc)
+
+@api_router.put("/admin/courses/{course_id}")
+async def admin_update_course(course_id: str, data: CourseInput, admin: dict = Depends(require_admin)):
+    fields = _course_fields(data)
+    res = await db.courses.update_one({"id": course_id, "is_deleted": {"$ne": True}}, {"$set": fields})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Corso non trovato")
+    await db.enrollments.update_many({"course_id": course_id},
+                                     {"$set": {"course_title": fields["title"], "course_date": fields["start_date"]}})
+    return await course_admin(await db.courses.find_one({"id": course_id}))
+
+@api_router.delete("/admin/courses/{course_id}")
+async def admin_delete_course(course_id: str, admin: dict = Depends(require_admin)):
+    res = await db.courses.update_one({"id": course_id}, {"$set": {"is_deleted": True}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Corso non trovato")
+    return {"ok": True}
+
+@api_router.get("/admin/enrollments")
+async def admin_list_enrollments(course_id: Optional[str] = None, admin: dict = Depends(require_admin)):
+    query: dict = {"is_deleted": {"$ne": True}}
+    if course_id:
+        query["course_id"] = course_id
+    docs = await db.enrollments.find(query).sort("created_at", -1).to_list(10000)
+    return [enrollment_admin(d) for d in docs]
+
+@api_router.patch("/admin/enrollments/{enrollment_id}")
+async def admin_update_enrollment(enrollment_id: str, data: EnrollmentStatusInput, admin: dict = Depends(require_admin)):
+    if data.status not in ("nuova", "confermata", "annullata"):
+        raise HTTPException(status_code=400, detail="Stato non valido")
+    res = await db.enrollments.update_one({"id": enrollment_id, "is_deleted": {"$ne": True}}, {"$set": {"status": data.status}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Iscrizione non trovata")
+    return enrollment_admin(await db.enrollments.find_one({"id": enrollment_id}))
+
+@api_router.delete("/admin/enrollments/{enrollment_id}")
+async def admin_delete_enrollment(enrollment_id: str, admin: dict = Depends(require_admin)):
+    res = await db.enrollments.update_one({"id": enrollment_id}, {"$set": {"is_deleted": True}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Iscrizione non trovata")
+    return {"ok": True}
+
+async def _issue_from_enrollment(enr: dict, course: Optional[dict]) -> dict:
+    if enr.get("certificate_id"):
+        existing = await db.certificates.find_one({"id": enr["certificate_id"], "is_deleted": {"$ne": True}})
+        if existing:
+            return existing
+    if not course:
+        raise HTTPException(status_code=404, detail="Il corso di questa iscrizione non esiste più")
+    ctype = course.get("title", "")
+    if course.get("kind"):
+        ctype = f"{ctype} — {course['kind']}"
+    fields = _cert_fields(CertificateInput(
+        first_name=enr.get("first_name", ""), last_name=enr.get("last_name", ""),
+        birth_place=enr.get("birth_place", ""), birth_date=enr.get("birth_date", ""),
+        course_type=ctype, course_date=course.get("start_date", ""), course_end_date=course.get("end_date", ""),
+        course_hours=course.get("hours"), validity_years=course.get("validity_years"),
+        tax_code=enr.get("tax_code", ""),
+    ))
+    cert = await _insert_certificate(fields, {"course_id": course["id"], "enrollment_id": enr["id"]})
+    await db.enrollments.update_one({"id": enr["id"]}, {"$set": {"certificate_id": cert["id"], "status": "confermata"}})
+    return cert
+
+@api_router.post("/admin/enrollments/{enrollment_id}/certificate")
+async def admin_issue_certificate(enrollment_id: str, admin: dict = Depends(require_admin)):
+    enr = await db.enrollments.find_one({"id": enrollment_id, "is_deleted": {"$ne": True}})
+    if not enr:
+        raise HTTPException(status_code=404, detail="Iscrizione non trovata")
+    if enr.get("status") == "annullata":
+        raise HTTPException(status_code=400, detail="Iscrizione annullata: riattivala prima di emettere l'attestato")
+    course = await db.courses.find_one({"id": enr["course_id"]})
+    return certificate_admin(await _issue_from_enrollment(enr, course))
+
+@api_router.post("/admin/courses/{course_id}/certificates")
+async def admin_issue_course_certificates(course_id: str, admin: dict = Depends(require_admin)):
+    """Emette gli attestati per tutti gli iscritti CONFERMATI che non ne hanno ancora uno."""
+    course = await db.courses.find_one({"id": course_id, "is_deleted": {"$ne": True}})
+    if not course:
+        raise HTTPException(status_code=404, detail="Corso non trovato")
+    enrs = await db.enrollments.find({"course_id": course_id, "is_deleted": {"$ne": True}, "status": "confermata"}).to_list(5000)
+    created = []
+    for enr in enrs:
+        if enr.get("certificate_id") and await db.certificates.find_one({"id": enr["certificate_id"], "is_deleted": {"$ne": True}}):
+            continue
+        created.append(certificate_admin(await _issue_from_enrollment(enr, course)))
+    return {"created": created}
 
 @api_router.get("/")
 async def root():
@@ -866,6 +1341,11 @@ async def on_startup():
     await seed_client()
     await db.logos.create_index("id", unique=True)
     await db.site_content.create_index("key", unique=True)
+    await db.certificates.create_index("id", unique=True)
+    await db.certificates.create_index("code", unique=True)
+    await db.courses.create_index("id", unique=True)
+    await db.enrollments.create_index("id", unique=True)
+    await db.enrollments.create_index("course_id")
     await seed_logos()
     try:
         init_storage()

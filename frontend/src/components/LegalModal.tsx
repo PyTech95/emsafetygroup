@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { X, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { soundFX } from '../utils/audio';
@@ -7,18 +8,20 @@ interface LegalModalProps {
   title: string;
   content: string;
   onClose: () => void;
+  /** Classe z-index (es. per aprire il modale sopra il banner cookie). */
+  zClass?: string;
 }
 
-export default function LegalModal({ isOpen, title, content, onClose }: LegalModalProps) {
+export default function LegalModal({ isOpen, title, content, onClose, zClass = 'z-50' }: LegalModalProps) {
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="legal-modal-title"
       data-testid="legal-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className={`fixed inset-0 ${zClass} flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200`}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -44,8 +47,8 @@ export default function LegalModal({ isOpen, title, content, onClose }: LegalMod
           </button>
         </div>
 
-        <div data-testid="legal-modal-content" className="p-6 text-slate-600 font-sans text-[14.5px] leading-relaxed space-y-3 max-h-[70vh] overflow-y-auto">
-          <p>{content}</p>
+        <div data-testid="legal-modal-content" data-lenis-prevent className="p-6 text-slate-600 font-sans text-[14.5px] leading-relaxed space-y-3 max-h-[70vh] overflow-y-auto">
+          {content.split('\n\n').map((para, i) => <p key={i}>{para}</p>)}
           <div className="pt-3 border-t border-slate-200 font-sans text-[12px] text-slate-500">
             Per ulteriori informazioni o richieste sui propri dati, è sempre possibile contattare il Responsabile della Protezione Dati (DPO) all'indirizzo e-mail:{' '}
             <strong className="text-[#0b2545] font-semibold">privacy@emsafetygroup.it</strong>.
@@ -65,6 +68,7 @@ export default function LegalModal({ isOpen, title, content, onClose }: LegalMod
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body,
   );
 }

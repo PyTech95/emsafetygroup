@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Clock, MapPin, CalendarDays, X, Check, ArrowRight, ScrollText } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Clock, MapPin, CalendarDays, X, Check, ArrowRight, ScrollText, QrCode } from 'lucide-react';
 import SectionLabel from './SectionLabel';
 import { COURSES_DATA } from '../data/coursesData';
 import { Course } from '../types';
@@ -31,6 +32,16 @@ export default function CoursesSection({ onNavigate }: CoursesProps) {
             Corsi conformi all&apos;Accordo Stato-Regioni e al D.Lgs 81/08, con attestati a codice univoco validi in tutta
             Italia. In aula presso le sedi di Treviso e Milano, in videoconferenza (FAD) o direttamente in azienda.
           </p>
+          <div className="flex flex-wrap gap-3 mt-7">
+            <Link to="/corsi" data-testid="courses-upcoming-cta"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#1e6fd9] hover:bg-[#155bb0] text-white font-sans text-[14px] font-bold shadow-lg shadow-[#1e6fd9]/20 transition-colors">
+              <CalendarDays className="w-4 h-4" /> Corsi in partenza e iscrizioni
+            </Link>
+            <Link to="/verifica-attestato" data-testid="courses-verify-cta"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-[#cfe3f8] bg-[#f0f7fd] hover:bg-[#e8f1fc] text-[#155bb0] font-sans text-[14px] font-bold transition-colors">
+              <QrCode className="w-4 h-4" /> Verifica un attestato
+            </Link>
+          </div>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">

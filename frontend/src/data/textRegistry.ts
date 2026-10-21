@@ -32,6 +32,8 @@ const G = {
   pFaq: 'Pagina FAQ',
   pStorie: 'Pagina Storie',
   pContatti: 'Pagina Contatti',
+  pCorsi: 'Pagina Corsi in Partenza',
+  pVerifica: 'Pagina Verifica Attestato',
   company: 'Dati Azienda',
 };
 
@@ -205,6 +207,17 @@ export const TEXT_SLOTS: TextSlot[] = [
   S('page.contatti.title', 'Titolo', G.pContatti, 'Contattaci per assistenza e'),
   S('page.contatti.highlight', 'Titolo · evidenziato', G.pContatti, 'informazioni sui nostri servizi.'),
   S('page.contatti.subtitle', 'Sottotitolo', G.pContatti, 'Hai bisogno di una consulenza o di un preventivo gratuito? Compila il modulo o contattaci direttamente: ti risponderemo entro 24-48 ore lavorative.', true),
+
+  S('page.corsi.label', 'Etichetta', G.pCorsi, 'Corsi in Partenza'),
+  S('page.corsi.title', 'Titolo', G.pCorsi, 'Formazione sulla sicurezza:'),
+  S('page.corsi.highlight', 'Titolo · evidenziato', G.pCorsi, 'iscriviti ai prossimi corsi.'),
+  S('page.corsi.subtitle', 'Sottotitolo', G.pCorsi, 'Il calendario aggiornato dei corsi E.M. Safety conformi al D.Lgs. 81/08 e agli Accordi Stato-Regioni. Scegli l’edizione, compila il modulo e ricevi la conferma: al termine rilasciamo un attestato con QR code verificabile online.', true),
+  S('page.corsi.empty', 'Messaggio quando non ci sono corsi', G.pCorsi, 'Stiamo pianificando le prossime edizioni. Organizziamo anche corsi su misura direttamente in azienda: contattaci per date e preventivi.', true),
+
+  S('page.verifica.label', 'Etichetta', G.pVerifica, 'Registro Attestati'),
+  S('page.verifica.title', 'Titolo', G.pVerifica, 'Verifica l’autenticità di un'),
+  S('page.verifica.highlight', 'Titolo · evidenziato', G.pVerifica, 'attestato E.M. Safety.'),
+  S('page.verifica.subtitle', 'Sottotitolo', G.pVerifica, 'Ogni attestato rilasciato dal nostro centro di formazione riporta un QR code e un codice univoco. Inquadra il QR code oppure inserisci il codice per controllare in tempo reale i dati del corso svolto.', true),
 
   // Company
   S('company.name', 'Ragione sociale', G.company, COMPANY.name),

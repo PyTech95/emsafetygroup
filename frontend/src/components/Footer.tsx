@@ -3,25 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import EmSafetyLogo from './EmSafetyLogo';
 import LegalModal from './LegalModal';
 import { COMPANY } from '../data/siteContent';
+import { LEGAL } from '../data/legal';
 import { useText } from '../lib/content';
 
 const NAV: { label: string; route: string }[] = [
   { label: 'Chi Siamo', route: '/informazioni' },
   { label: 'I Nostri Servizi', route: '/servizi' },
+  { label: 'Corsi in Partenza', route: '/corsi' },
+  { label: 'Verifica Attestato', route: '/verifica-attestato' },
   { label: 'Storie di Successo', route: '/storie' },
   { label: 'Testimonianze', route: '/testimonianze' },
   { label: 'FAQ', route: '/faq' },
   { label: 'Contatti & Preventivo', route: '/contatti' },
 ];
-
-const LEGAL: Record<string, string> = {
-  'Privacy Policy':
-    'E.M Safety S.r.l. tutela la riservatezza dei dati personali conferiti ai sensi del Regolamento UE 2016/679 (GDPR). I dati raccolti tramite form o contatto diretto sono trattati unicamente per rispondere alle richieste commerciali e gestire l\u2019erogazione delle attività formative e consulenziali.',
-  'Cookie Policy':
-    'Il presente sito utilizza esclusivamente cookie tecnici essenziali per garantire la corretta navigazione. Non viene effettuata profilazione pubblicitaria senza esplicito consenso preventivo.',
-  'Termini e Condizioni':
-    'Le iscrizioni ai corsi e gli incarichi professionali sono regolati dalle condizioni di contratto siglate in sede di preventivo approvato. Gli attestati vengono emessi a seguito del superamento dei test e del rispetto della frequenza minima prevista.',
-};
 
 export default function Footer() {
   const navigate = useNavigate();

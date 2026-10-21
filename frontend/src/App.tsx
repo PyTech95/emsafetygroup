@@ -14,6 +14,10 @@ import FaqPage from './pages/FaqPage';
 import ContattiPage from './pages/ContattiPage';
 import StoriePage from './pages/StoriePage';
 import StoriaDetailPage from './pages/StoriaDetailPage';
+import CorsiPage from './pages/CorsiPage';
+import CorsoDetailPage from './pages/CorsoDetailPage';
+import VerificaAttestatoPage from './pages/VerificaAttestatoPage';
+import CookieConsent from './components/CookieConsent';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 
@@ -71,6 +75,7 @@ export default function App() {
         <AssetsProvider>
           <ContentProvider>
           <VisitTracker />
+          <CookieConsent />
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
@@ -81,6 +86,10 @@ export default function App() {
               <Route path="/contatti" element={<ContattiPage />} />
               <Route path="/storie" element={<StoriePage />} />
               <Route path="/storie/:id" element={<StoriaDetailPage />} />
+              <Route path="/corsi" element={<CorsiPage />} />
+              <Route path="/corsi/:id" element={<CorsoDetailPage />} />
+              <Route path="/verifica-attestato" element={<VerificaAttestatoPage />} />
+              <Route path="/verifica/:code" element={<VerificaAttestatoPage />} />
             </Route>
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route
