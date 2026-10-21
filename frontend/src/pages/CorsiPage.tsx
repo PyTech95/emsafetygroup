@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowRight, Clock, MapPin, Users, MonitorSmartphone, CalendarX2, QrCode, Hourglass } from 'lucide-react';
 import PageHero from '../components/PageHero';
+import QaBlock from '../components/QaBlock';
+import { COURSES_DATA } from '../data/coursesData';
+import { CORSI_FAQ } from '../seo/config';
 import API from '../lib/api';
 import { useText } from '../lib/content';
 import { UpcomingCourse, dateBlock, fmtDate, fmtHours } from '../lib/training';
@@ -40,9 +43,7 @@ export default function CorsiPage() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    document.title = 'Corsi in partenza | E.M SAFETY';
     API.get('/courses').then((r) => setCourses(r.data)).catch(() => { setCourses([]); setError(true); });
-    return () => { document.title = 'E.M SAFETY | Consulenze e Formazioni'; };
   }, []);
 
   return (
@@ -154,6 +155,40 @@ export default function CorsiPage() {
             </span>
             <span className="inline-flex items-center gap-2 font-sans text-[13.5px] font-bold text-[#155bb0] group-hover:gap-3 transition-all">Verifica attestato <ArrowRight className="w-4 h-4" /></span>
           </Link>
+        </div>
+      </section>
+
+      {/* Catalogo: tutte le tipologie di corso, anche su richiesta in azienda */}
+      <section id="catalogo" className="bg-slate-50 border-t border-slate-200 py-14 sm:py-20" aria-labelledby="catalogo-title" data-testid="corsi-catalogo">
+        <div className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl">
+            <h2 id="catalogo-title" className="font-display text-[24px] sm:text-[30px] font-extrabold text-[#0b2545] tracking-tight">Catalogo corsi sulla sicurezza sul lavoro</h2>
+            <p className="font-sans text-[15px] text-slate-600 leading-relaxed mt-3">
+              Oltre alle edizioni in calendario, organizziamo tutti i corsi previsti dal D.Lgs 81/08 e dagli Accordi Stato-Regioni in aula a Treviso e Milano, in videoconferenza o direttamente in azienda.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
+            {COURSES_DATA.map((c) => (
+              <article key={c.id} className="rounded-2xl bg-white border border-slate-200 p-5 sm:p-6 flex flex-col">
+                <span className="font-sans text-[11px] font-bold uppercase tracking-wider text-[#155bb0]">{c.categoryLabel}</span>
+                <h3 className="font-display text-[17px] font-bold text-[#0b2545] leading-snug mt-1.5">{c.title}</h3>
+                <p className="font-sans text-[13.5px] text-slate-600 leading-relaxed mt-2 flex-1">{c.description}</p>
+                <dl className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 font-sans text-[12.5px]">
+                  <div><dt className="text-slate-400">Durata</dt><dd className="font-semibold text-slate-700">{c.duration}</dd></div>
+                  <div><dt className="text-slate-400">Riferimento</dt><dd className="font-semibold text-slate-700">{c.legalRef}</dd></div>
+                </dl>
+              </article>
+            ))}
+          </div>
+          <Link to="/contatti" className="mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0b2545] text-white font-sans text-[14px] font-bold border-b-2 border-[#1e6fd9]">
+            Richiedi un corso in azienda <ArrowRight className="w-4 h-4 text-[#1e6fd9]" />
+          </Link>
+        </div>
+      </section>
+
+      <section className="bg-white py-14 sm:py-20">
+        <div className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
+          <QaBlock id="faq" title="Domande frequenti sui corsi" items={CORSI_FAQ} />
         </div>
       </section>
     </>

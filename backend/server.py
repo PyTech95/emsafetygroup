@@ -903,10 +903,12 @@ async def _insert_certificate(fields: dict, extra: Optional[dict] = None) -> dic
     return doc
 
 @api_router.get("/certificates/verify/{code}")
-async def verify_certificate(code: str):
+async def verify_certificate(code: str, response: Response):
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"  # dati personali: mai indicizzati
     doc = await db.certificates.find_one({"code": _normalize_code(code), "is_deleted": {"$ne": True}})
     if not doc:
-        raise HTTPException(status_code=404, detail="Nessun attestato trovato con questo codice")
+        raise HTTPException(status_code=404, detail="Nessun attestato trovato con questo codice",
+                            headers={"X-Robots-Tag": "noindex, nofollow"})
     return certificate_public(doc)
 
 @api_router.get("/admin/certificates")
@@ -1157,6 +1159,7 @@ async def admin_create_course(data: CourseInput, admin: dict = Depends(require_a
 @api_router.put("/admin/courses/{course_id}")
 async def admin_update_course(course_id: str, data: CourseInput, admin: dict = Depends(require_admin)):
     fields = _course_fields(data)
+    fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     res = await db.courses.update_one({"id": course_id, "is_deleted": {"$ne": True}}, {"$set": fields})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Corso non trovato")
@@ -1239,6 +1242,27 @@ async def admin_issue_course_certificates(course_id: str, admin: dict = Depends(
             continue
         created.append(certificate_admin(await _issue_from_enrollment(enr, course)))
     return {"created": created}
+
+# ================================================================ SEO: sitemap dinamica (corsi in partenza + storie)
+PUBLIC_SITE_URL = (os.environ.get("PUBLIC_SITE_URL") or "https://emsafetygroup.it").strip().rstrip("/")
+
+@api_router.get("/sitemap.xml")
+async def dynamic_sitemap():
+    today = _today().isoformat()
+    urls = []
+    async for c in db.courses.find({"is_deleted": {"$ne": True}, "published": True}):
+        if _course_last_day(c) >= today:
+            lastmod = (c.get("updated_at") or c.get("created_at") or today)[:10]
+            urls.append((f"{PUBLIC_SITE_URL}/corsi/{c['id']}", lastmod, "weekly", "0.8"))
+    async for st in db.stories.find({"is_deleted": {"$ne": True}}):
+        urls.append((f"{PUBLIC_SITE_URL}/storie/{st['id']}", (st.get("created_at") or today)[:10], "monthly", "0.6"))
+    body = "".join(
+        f"  <url>\n    <loc>{_escape(loc)}</loc>\n    <lastmod>{lm}</lastmod>\n    <changefreq>{cf}</changefreq>\n    <priority>{pr}</priority>\n  </url>\n"
+        for loc, lm, cf, pr in urls
+    )
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+           f"{body}</urlset>\n")
+    return FileResponse(content=xml, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
 
 @api_router.get("/")
 async def root():

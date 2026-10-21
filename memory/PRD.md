@@ -72,3 +72,12 @@ Deploy the uploaded EM-Website-main project on a public URL with a pre-deploy au
 - Admin: new tabs Corsi in partenza (modal form, example sheet, duplicate), Iscrizioni corsi (CSV export, issue certificates), Attestati & QR (course block + participant rows, CSV import, QR PNG / ZIP download, revoke, edit, CSV export). QR generated client-side (qrcode, jszip deps) and points to REACT_APP_PUBLIC_SITE_URL or window.location.origin.
 - CookieConsent.tsx + lib/consent.ts: banner text as client screenshot; X = continue without accepting; Accetta tutti / solo necessari / Opzioni (statistiche, marketing); padlock bottom-left to reopen; choice stored 180 days in localStorage; forwards to gtag consent mode if present. Legal texts moved to src/data/legal.ts (to be validated by client's privacy consultant).
 - Tests: backend/tests/test_courses_certificates.py (6 tests).
+
+## SEO / GEO / AEO pass (2026-10-21)
+- src/seo/config.ts = single source for per-page title/description, canonical (SITE_URL from REACT_APP_PUBLIC_SITE_URL, default https://emsafetygroup.it), JSON-LD builders (Organization+LocalBusiness, WebSite, WebPage, Breadcrumb, FAQPage, Service list, Course catalog), CORSI_FAQ / VERIFY_FAQ. src/seo/dynamic.ts: Course+EducationEvent for /corsi/:id, Article for /storie/:id, 404.
+- src/seo/Seo.tsx: RouteSeo in Layout (static pages, admin-editable via Testi Sito "SEO" keys seo.<key>.title/description), useSeo for dynamic pages, NoIndex for admin/404/verifica. Tags upserted (no duplicates).
+- frontend/scripts/seo-build.js runs after craco build ("build" script): per-route prerendered HTML (build/<route>/index.html + <route>.html) with head tags + visually hidden semantic content for non-JS crawlers; robots.txt, sitemap.xml, llms.txt. Root index.html has no canonical (it is the SPA fallback). `yarn seo` regenerates public/ copies.
+- Backend: GET /api/sitemap.xml (upcoming published courses + stories, PUBLIC_SITE_URL env), X-Robots-Tag noindex on certificate verify.
+- Header/footer/CTA navigation converted from buttons to <Link> (crawlable). Unknown routes → NotFoundPage (noindex) instead of redirect home. FAQ answers always in DOM. New /corsi sections: Catalogo corsi (#catalogo) + FAQ; /verifica-attestato FAQ.
+- Removed unused Material Symbols font; images compressed 5.1MB→2.5MB; og-emsafety.jpg (1200×630), icon-512.png, site.webmanifest.
+- Post-deploy checklist in SEO_NOTES.md (Search Console domain property, sitemaps, Bing, GBP, www→non-www 301).

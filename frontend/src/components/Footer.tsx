@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import EmSafetyLogo from './EmSafetyLogo';
 import LegalModal from './LegalModal';
 import { COMPANY } from '../data/siteContent';
@@ -7,6 +7,7 @@ import { LEGAL } from '../data/legal';
 import { useText } from '../lib/content';
 
 const NAV: { label: string; route: string }[] = [
+  { label: 'Home', route: '/' },
   { label: 'Chi Siamo', route: '/informazioni' },
   { label: 'I Nostri Servizi', route: '/servizi' },
   { label: 'Corsi in Partenza', route: '/corsi' },
@@ -18,14 +19,10 @@ const NAV: { label: string; route: string }[] = [
 ];
 
 export default function Footer() {
-  const navigate = useNavigate();
   const t = useText();
   const [legal, setLegal] = useState<{ open: boolean; title: string; content: string }>({ open: false, title: '', content: '' });
 
-  const go = (route: string) => {
-    navigate(route);
-    window.scrollTo({ top: 0 });
-  };
+  const toTop = () => window.scrollTo({ top: 0 });
 
   return (
     <footer className="w-full bg-slate-50 text-slate-600 border-t-4 border-[#0b2545]" data-testid="footer">
@@ -58,11 +55,11 @@ export default function Footer() {
             <ul className="font-sans text-[13.5px] text-slate-600 flex flex-col gap-2.5">
               {NAV.map((n) => (
                 <li key={n.route}>
-                  <button onClick={() => go(n.route)} data-testid={`footer-nav-${n.route.replace('/', '') || 'home'}`} className="hover:text-sky-700 transition-colors text-left cursor-pointer">{n.label}</button>
+                  <Link to={n.route} onClick={toTop} data-testid={`footer-nav-${n.route.replace('/', '') || 'home'}`} className="hover:text-sky-700 transition-colors text-left cursor-pointer">{n.label}</Link>
                 </li>
               ))}
               <li>
-                <button onClick={() => navigate('/admin/login')} data-testid="footer-admin-link" className="hover:text-sky-700 transition-colors text-left cursor-pointer text-slate-400">Area Riservata</button>
+                <Link to="/admin/login" rel="nofollow" data-testid="footer-admin-link" className="hover:text-sky-700 transition-colors text-left cursor-pointer text-slate-400">Area Riservata</Link>
               </li>
             </ul>
           </div>

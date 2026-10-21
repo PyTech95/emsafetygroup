@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ArrowRight, Phone, QrCode } from 'lucide-react';
 import EmSafetyLogo from './EmSafetyLogo';
 import { COMPANY } from '../data/siteContent';
@@ -18,7 +18,6 @@ const NAV: { label: string; route: string }[] = [
 const VERIFY_ROUTE = '/verifica-attestato';
 
 export default function Header() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -30,9 +29,9 @@ export default function Header() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const go = (route: string) => {
+  // Link reali (<a href>) per permettere a Google di scoprire tutte le pagine
+  const after = () => {
     setOpen(false);
-    navigate(route);
     window.scrollTo({ top: 0 });
   };
 
@@ -48,34 +47,34 @@ export default function Header() {
       } border-b border-slate-200/80`}
     >
       <div className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 h-[80px] sm:h-[104px] lg:h-[120px] flex items-center justify-between gap-3">
-        <button onClick={() => go('/')} className="text-left flex items-center shrink-0 cursor-pointer hover:opacity-90 transition-opacity" aria-label="E.M Safety Home" data-testid="logo-home-button">
+        <Link to="/" onClick={after} className="text-left flex items-center shrink-0 cursor-pointer hover:opacity-90 transition-opacity" aria-label="E.M Safety Home" data-testid="logo-home-button">
           <EmSafetyLogo variant="navy" size="sm" showTagline showSlogan sloganPlacement="right" />
-        </button>
+        </Link>
 
         <nav className="hidden xl:flex items-center gap-0.5 shrink-0 whitespace-nowrap" aria-label="Navigazione principale" data-testid="desktop-navigation">
           {NAV.map((item) => {
             const active = isActive(item.route);
             return (
-              <button key={item.route} onClick={() => go(item.route)} data-testid={`nav-${item.route.replace('/', '') || 'home'}`}
+              <Link key={item.route} to={item.route} onClick={after} aria-current={active ? 'page' : undefined} data-testid={`nav-${item.route.replace('/', '') || 'home'}`}
                 className={`relative px-2.5 py-2 font-sans text-[13px] font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer ${
                   active ? 'text-[#0b2545]' : 'text-slate-600 hover:text-[#0b2545]'
                 }`}>
                 {item.label}
                 <span className={`absolute left-3 right-3 -bottom-0.5 h-0.5 rounded-full bg-[#1e6fd9] transition-transform origin-left ${active ? 'scale-x-100' : 'scale-x-0'}`} />
-              </button>
+              </Link>
             );
           })}
         </nav>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          <button onClick={() => go(VERIFY_ROUTE)} data-testid="header-verify" title="Verifica attestato"
+          <Link to={VERIFY_ROUTE} onClick={after} data-testid="header-verify" title="Verifica attestato"
             className={`hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border font-sans text-[12.5px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
               verifyActive ? 'bg-[#1e6fd9] border-[#1e6fd9] text-white' : 'border-[#cfe3f8] bg-[#f0f7fd] text-[#155bb0] hover:bg-[#e8f1fc]'
             }`}>
             <QrCode className="w-4 h-4" />
             <span className="xl:hidden min-[1400px]:inline">Verifica attestato</span>
             <span className="hidden xl:inline min-[1400px]:hidden">Verifica</span>
-          </button>
+          </Link>
           <a href={COMPANY.phoneHref} data-testid="header-phone" className="hidden md:inline-flex items-center gap-2 font-sans text-[13px] font-semibold whitespace-nowrap shrink-0 text-slate-700 hover:text-[#0b2545] transition-colors">
             <Phone className="w-4 h-4 text-[#1e6fd9]" />
             <span>{COMPANY.phone}</span>
@@ -90,31 +89,31 @@ export default function Header() {
         <div id="mobile-navigation" data-testid="mobile-navigation" className="xl:hidden bg-white border-b border-slate-200 px-4 pt-3 pb-5 shadow-xl">
           <div className="space-y-1">
             {NAV.map((item) => (
-              <button key={item.route} onClick={() => go(item.route)} data-testid={`mobile-nav-${item.route.replace('/', '') || 'home'}`}
+              <Link key={item.route} to={item.route} onClick={after} data-testid={`mobile-nav-${item.route.replace('/', '') || 'home'}`}
                 className={`w-full text-left px-4 py-3.5 font-sans text-[15.5px] font-semibold rounded-xl transition-colors flex items-center justify-between cursor-pointer ${
                   isActive(item.route) ? 'text-[#155bb0] bg-[#e8f1fc]' : 'text-slate-700 hover:text-[#155bb0] hover:bg-[#f0f7fd]'
                 }`}>
                 <span>{item.label}</span>
                 <ArrowRight className="w-[18px] h-[18px] text-[#1e6fd9]" />
-              </button>
+              </Link>
             ))}
-            <button onClick={() => go(VERIFY_ROUTE)} data-testid="mobile-nav-verifica"
+            <Link to={VERIFY_ROUTE} onClick={after} data-testid="mobile-nav-verifica"
               className={`w-full text-left px-4 py-3.5 font-sans text-[15.5px] font-semibold rounded-xl transition-colors flex items-center justify-between cursor-pointer ${
                 verifyActive ? 'text-[#155bb0] bg-[#e8f1fc]' : 'text-slate-700 hover:text-[#155bb0] hover:bg-[#f0f7fd]'
               }`}>
               <span className="inline-flex items-center gap-2"><QrCode className="w-[18px] h-[18px] text-[#1e6fd9]" /> Verifica attestato</span>
               <ArrowRight className="w-[18px] h-[18px] text-[#1e6fd9]" />
-            </button>
+            </Link>
           </div>
           <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2.5">
             <a href={COMPANY.phoneHref} data-testid="mobile-menu-call"
               className="inline-flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#e8f1fc] text-[#155bb0] font-sans text-[14px] font-bold">
               <Phone className="w-4 h-4" /> Chiama ora
             </a>
-            <button onClick={() => go('/contatti')} data-testid="mobile-menu-quote"
+            <Link to="/contatti" onClick={after} data-testid="mobile-menu-quote"
               className="inline-flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#1e6fd9] text-white font-sans text-[14px] font-bold cursor-pointer">
               Preventivo
-            </button>
+            </Link>
           </div>
         </div>
       )}

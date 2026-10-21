@@ -1,14 +1,13 @@
 import { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { ArrowRight, Quote } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAsset } from '../lib/assets';
 import { useText } from '../lib/content';
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export default function FounderSection() {
-  const navigate = useNavigate();
   const asset = useAsset();
   const t = useText();
   const mediaRef = useRef<HTMLDivElement>(null);
@@ -76,14 +75,14 @@ export default function FounderSection() {
               <p>{t('home.founder.p1')}</p>
               <p>{t('home.founder.p2')}</p>
             </div>
-            <button
-              onClick={() => navigate('/informazioni')}
+            <Link to="/informazioni"
+              onClick={() => window.scrollTo({ top: 0 })}
               data-testid="founder-cta"
               className="group inline-flex items-center gap-2 mt-8 px-6 py-3.5 bg-[#1e6fd9] hover:bg-[#155bb0] text-white font-sans text-[14px] font-bold rounded-full shadow-lg transition-[background-color,transform] active:scale-95 cursor-pointer"
             >
               {t('home.founder.cta')}
               <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1" />
-            </button>
+            </Link>
           </motion.div>
         </div>
       </div>

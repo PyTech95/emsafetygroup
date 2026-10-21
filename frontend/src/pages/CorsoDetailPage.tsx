@@ -6,6 +6,8 @@ import API from '../lib/api';
 import LegalModal from '../components/LegalModal';
 import { LEGAL } from '../data/legal';
 import { CourseAvailability } from './CorsiPage';
+import { useSeo } from '../seo/Seo';
+import { courseSeo, notFoundSeo } from '../seo/dynamic';
 import { UpcomingCourse, apiError, fmtHours, fmtLongDate, fmtDate, fmtValidity } from '../lib/training';
 
 const fieldCls =
@@ -117,10 +119,7 @@ export default function CorsoDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-  useEffect(() => {
-    if (course) document.title = `${course.title} | Corsi E.M SAFETY`;
-    return () => { document.title = 'E.M SAFETY | Consulenze e Formazioni'; };
-  }, [course]);
+  useSeo(course && state === 'ok' ? courseSeo(course) : state === 'missing' ? notFoundSeo(`/corsi/${id}`) : null);
 
   if (state === 'loading') {
     return <div className="min-h-[70vh] flex items-center justify-center pt-[120px]"><Loader2 className="w-8 h-8 animate-spin text-[#0b2545]" /></div>;

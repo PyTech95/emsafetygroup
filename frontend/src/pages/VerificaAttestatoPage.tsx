@@ -3,6 +3,8 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, ShieldCheck, ShieldAlert, ShieldX, Loader2, QrCode, ScanLine, BadgeCheck, SearchX, Phone, Mail } from 'lucide-react';
 import SectionLabel from '../components/SectionLabel';
+import QaBlock from '../components/QaBlock';
+import { VERIFY_FAQ } from '../seo/config';
 import API from '../lib/api';
 import { useText } from '../lib/content';
 import { PublicCertificate, fmtDate, fmtHours, fmtRange, fmtValidity } from '../lib/training';
@@ -122,11 +124,6 @@ export default function VerificaAttestatoPage() {
   const [checkedAt, setCheckedAt] = useState(new Date());
 
   useEffect(() => {
-    document.title = 'Verifica attestato | E.M SAFETY';
-    return () => { document.title = 'E.M SAFETY | Consulenze e Formazioni'; };
-  }, []);
-
-  useEffect(() => {
     if (!code) { setState('idle'); setCert(null); return; }
     setState('loading');
     API.get(`/certificates/verify/${encodeURIComponent(code)}`)
@@ -218,6 +215,9 @@ export default function VerificaAttestatoPage() {
         <p className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 mt-8 font-sans text-[13.5px] text-slate-500">
           Vuoi ottenere un attestato? <Link to="/corsi" className="font-semibold text-[#155bb0] underline">Scopri i corsi in partenza</Link>.
         </p>
+        <div className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 mt-14">
+          <QaBlock id="faq" title="Domande frequenti sulla verifica degli attestati" items={VERIFY_FAQ} />
+        </div>
       </section>
     </>
   );
