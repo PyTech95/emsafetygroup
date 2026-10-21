@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ArrowRight, Phone } from 'lucide-react';
+import { Menu, X, ArrowRight, Phone, QrCode } from 'lucide-react';
 import EmSafetyLogo from './EmSafetyLogo';
 import { COMPANY } from '../data/siteContent';
 
@@ -8,11 +8,14 @@ const NAV: { label: string; route: string }[] = [
   { label: 'Home', route: '/' },
   { label: 'Chi Siamo', route: '/informazioni' },
   { label: 'Servizi', route: '/servizi' },
+  { label: 'Corsi', route: '/corsi' },
   { label: 'Storie', route: '/storie' },
   { label: 'Testimonianze', route: '/testimonianze' },
   { label: 'FAQ', route: '/faq' },
   { label: 'Contatti', route: '/contatti' },
 ];
+
+const VERIFY_ROUTE = '/verifica-attestato';
 
 export default function Header() {
   const navigate = useNavigate();
@@ -35,6 +38,7 @@ export default function Header() {
 
   const isActive = (route: string) =>
     route === '/' ? location.pathname === '/' : location.pathname.startsWith(route);
+  const verifyActive = location.pathname.startsWith('/verifica');
 
   return (
     <header
@@ -64,6 +68,14 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2.5 shrink-0">
+          <button onClick={() => go(VERIFY_ROUTE)} data-testid="header-verify" title="Verifica attestato"
+            className={`hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border font-sans text-[12.5px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+              verifyActive ? 'bg-[#1e6fd9] border-[#1e6fd9] text-white' : 'border-[#cfe3f8] bg-[#f0f7fd] text-[#155bb0] hover:bg-[#e8f1fc]'
+            }`}>
+            <QrCode className="w-4 h-4" />
+            <span className="xl:hidden min-[1400px]:inline">Verifica attestato</span>
+            <span className="hidden xl:inline min-[1400px]:hidden">Verifica</span>
+          </button>
           <a href={COMPANY.phoneHref} data-testid="header-phone" className="hidden md:inline-flex items-center gap-2 font-sans text-[13px] font-semibold whitespace-nowrap shrink-0 text-slate-700 hover:text-[#0b2545] transition-colors">
             <Phone className="w-4 h-4 text-[#1e6fd9]" />
             <span>{COMPANY.phone}</span>
@@ -86,6 +98,13 @@ export default function Header() {
                 <ArrowRight className="w-[18px] h-[18px] text-[#1e6fd9]" />
               </button>
             ))}
+            <button onClick={() => go(VERIFY_ROUTE)} data-testid="mobile-nav-verifica"
+              className={`w-full text-left px-4 py-3.5 font-sans text-[15.5px] font-semibold rounded-xl transition-colors flex items-center justify-between cursor-pointer ${
+                verifyActive ? 'text-[#155bb0] bg-[#e8f1fc]' : 'text-slate-700 hover:text-[#155bb0] hover:bg-[#f0f7fd]'
+              }`}>
+              <span className="inline-flex items-center gap-2"><QrCode className="w-[18px] h-[18px] text-[#1e6fd9]" /> Verifica attestato</span>
+              <ArrowRight className="w-[18px] h-[18px] text-[#1e6fd9]" />
+            </button>
           </div>
           <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2.5">
             <a href={COMPANY.phoneHref} data-testid="mobile-menu-call"

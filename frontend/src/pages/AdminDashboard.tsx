@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   LogOut, Plus, Trash2, UploadCloud, Home, Loader2, CheckCircle2, X, ImageIcon,
   Inbox, Users, MailOpen, Newspaper, LayoutDashboard, Images, Settings, Menu,
-  TrendingUp, Mail, Send, RotateCcw, Pencil, Type, BadgeCheck,
+  TrendingUp, Mail, Send, RotateCcw, Pencil, Type, BadgeCheck, CalendarDays, ClipboardList, QrCode,
 } from 'lucide-react';
 import TextsView from './admin/TextsView';
 import LogosView from './admin/LogosView';
+import CoursesView from './admin/CoursesView';
+import EnrollmentsView from './admin/EnrollmentsView';
+import CertificatesView from './admin/CertificatesView';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import API, { fileUrl, BACKEND } from '../lib/api';
@@ -17,10 +20,10 @@ import EmSafetyLogo from '../components/EmSafetyLogo';
 interface Story { id: string; title: string; sector: string; summary: string; content: string; cover_path?: string | null; cover_url?: string | null; created_at: string; }
 interface Inquiry { id: string; name: string; company: string; email: string; phone: string; service: string; message: string; status: string; created_at: string; }
 interface Client { id: string; email: string; name: string; created_at: string; }
-interface Stats { series: { day: string; visitors: number; inquiries: number }[]; totals: { visitors: number; visits_today: number; inquiries: number; new_inquiries: number; stories: number; clients: number }; }
+interface Stats { series: { day: string; visitors: number; inquiries: number }[]; totals: { visitors: number; visits_today: number; inquiries: number; new_inquiries: number; stories: number; clients: number; new_enrollments?: number; certificates?: number }; }
 interface EmailSettings { sender_email: string; sender_name: string; receiver_email: string; cc_email: string; enabled: boolean; has_app_password: boolean; }
 
-type Section = 'dashboard' | 'media' | 'testi' | 'loghi' | 'storie' | 'richieste' | 'clienti' | 'impostazioni';
+type Section = 'dashboard' | 'corsi' | 'iscrizioni' | 'attestati' | 'media' | 'testi' | 'loghi' | 'storie' | 'richieste' | 'clienti' | 'impostazioni';
 const emptyStory = { title: '', sector: '', summary: '', content: '', cover_path: '' as string | null };
 
 const NAVY = '#0b2545';
@@ -33,6 +36,7 @@ export default function AdminDashboard() {
   const [section, setSection] = useState<Section>(isAdmin ? 'dashboard' : 'storie');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [enrollmentCourse, setEnrollmentCourse] = useState('');
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 3500); };
 
   const [stats, setStats] = useState<Stats | null>(null);
@@ -52,6 +56,9 @@ export default function AdminDashboard() {
 
   const navItems: { key: Section; label: string; icon: typeof Home; adminOnly?: boolean; badge?: number }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
+    { key: 'corsi', label: 'Corsi in partenza', icon: CalendarDays, adminOnly: true },
+    { key: 'iscrizioni', label: 'Iscrizioni corsi', icon: ClipboardList, adminOnly: true, badge: stats?.totals.new_enrollments || 0 },
+    { key: 'attestati', label: 'Attestati & QR', icon: QrCode, adminOnly: true },
     { key: 'media', label: 'Immagini Sito', icon: Images, adminOnly: true },
     { key: 'testi', label: 'Testi Sito', icon: Type, adminOnly: true },
     { key: 'loghi', label: 'Loghi & Partner', icon: BadgeCheck, adminOnly: true },
@@ -112,6 +119,9 @@ export default function AdminDashboard() {
 
         <main className="flex-1 p-4 sm:p-8 max-w-[1200px] w-full mx-auto">
           {section === 'dashboard' && isAdmin && <DashboardView stats={stats} inquiries={inquiries} onGo={setSection} />}
+          {section === 'corsi' && isAdmin && <CoursesView showToast={showToast} onChange={loadStats} onShowEnrollments={(id) => { setEnrollmentCourse(id); setSection('iscrizioni'); }} />}
+          {section === 'iscrizioni' && isAdmin && <EnrollmentsView showToast={showToast} courseId={enrollmentCourse} onCourseChange={setEnrollmentCourse} onChange={loadStats} onOpenCertificates={() => setSection('attestati')} />}
+          {section === 'attestati' && isAdmin && <CertificatesView showToast={showToast} onChange={loadStats} />}
           {section === 'media' && isAdmin && <MediaView showToast={showToast} />}
           {section === 'testi' && isAdmin && <TextsView showToast={showToast} />}
           {section === 'loghi' && isAdmin && <LogosView showToast={showToast} />}
@@ -152,13 +162,15 @@ function DashboardView({ stats, inquiries, onGo }: { stats: Stats | null; inquir
   const recent = inquiries.slice(0, 5);
   return (
     <div className="space-y-6" data-testid="dashboard-view">
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={TrendingUp} label="Visitatori totali" value={t.visitors} tint={BLUE} testid="stat-visitors" />
         <StatCard icon={LayoutDashboard} label="Visite oggi" value={t.visits_today} tint="#0ea5e9" testid="stat-visits-today" />
         <StatCard icon={Inbox} label="Richieste totali" value={t.inquiries} tint="#f59e0b" testid="stat-inquiries" />
         <StatCard icon={Mail} label="Richieste nuove" value={t.new_inquiries} tint="#ef4444" testid="stat-new-inquiries" />
         <StatCard icon={Newspaper} label="Storie pubblicate" value={t.stories} tint={NAVY} testid="stat-stories" />
         <StatCard icon={Users} label="Clienti attivi" value={t.clients} tint="#10b981" testid="stat-clients" />
+        <StatCard icon={ClipboardList} label="Iscrizioni corsi nuove" value={t.new_enrollments ?? 0} tint="#f5a800" testid="stat-new-enrollments" />
+        <StatCard icon={QrCode} label="Attestati registrati" value={t.certificates ?? 0} tint={BLUE} testid="stat-certificates" />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
