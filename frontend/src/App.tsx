@@ -18,6 +18,8 @@ import CorsiPage from './pages/CorsiPage';
 import CorsoDetailPage from './pages/CorsoDetailPage';
 import VerificaAttestatoPage from './pages/VerificaAttestatoPage';
 import CookieConsent from './components/CookieConsent';
+import NotFoundPage from './pages/NotFoundPage';
+import { NoIndex } from './seo/Seo';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 
@@ -90,17 +92,18 @@ export default function App() {
               <Route path="/corsi/:id" element={<CorsoDetailPage />} />
               <Route path="/verifica-attestato" element={<VerificaAttestatoPage />} />
               <Route path="/verifica/:code" element={<VerificaAttestatoPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
-            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/login" element={<><NoIndex title="Area riservata | E.M Safety" /><AdminLogin /></>} />
             <Route
               path="/admin"
               element={
                 <ProtectedRoute>
+                  <NoIndex title="Pannello admin | E.M Safety" />
                   <AdminDashboard />
                 </ProtectedRoute>
               }
             />
-            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </ContentProvider>
         </AssetsProvider>

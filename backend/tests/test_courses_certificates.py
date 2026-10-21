@@ -111,3 +111,23 @@ class TestCertificates:
             assert requests.get(f"{API}/certificates/verify/{cert['code']}").json()["status"] == "scaduto"
         finally:
             s.delete(f"{API}/admin/certificates/{cert['id']}")
+
+
+class TestSeo:
+    def test_dynamic_sitemap_lists_upcoming_courses_only(self):
+        s = _admin()
+        up = s.post(f"{API}/admin/courses", json={"title": "TEST_sitemap_up", "start_date": FUTURE}).json()
+        past = s.post(f"{API}/admin/courses", json={"title": "TEST_sitemap_past", "start_date": PAST}).json()
+        try:
+            r = requests.get(f"{API}/sitemap.xml")
+            assert r.status_code == 200 and "xml" in r.headers.get("content-type", "")
+            assert f"/corsi/{up['id']}</loc>" in r.text
+            assert f"/corsi/{past['id']}" not in r.text
+        finally:
+            s.delete(f"{API}/admin/courses/{up['id']}")
+            s.delete(f"{API}/admin/courses/{past['id']}")
+
+    def test_verify_endpoint_is_noindex(self):
+        r = requests.get(f"{API}/certificates/verify/EMS-0000-NONE-NONE")
+        assert r.status_code == 404
+        assert "noindex" in r.headers.get("x-robots-tag", "")

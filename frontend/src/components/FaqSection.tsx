@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { FAQ_DATA } from '../data/coursesData';
 import { soundFX } from '../utils/audio';
 import { useText } from '../lib/content';
@@ -59,23 +59,20 @@ export default function FaqSection() {
                   </div>
                 </button>
 
-                <AnimatePresence>
-                  {isOpen && (
-                    <motion.div
-                      id={`faq-answer-${faq.id}`}
-                      data-testid={`faq-answer-${faq.id}`}
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-6 pb-6 text-slate-600 font-sans text-[14.5px] leading-relaxed border-t border-slate-100 pt-4">
-                        <p>{t(`faq.${faq.id}.answer`)}</p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* Risposta sempre presente nell'HTML (visibile a Google e ai motori AI), compressa quando chiusa */}
+                <div
+                  id={`faq-answer-${faq.id}`}
+                  data-testid={`faq-answer-${faq.id}`}
+                  role="region"
+                  aria-hidden={!isOpen}
+                  className={`grid transition-[grid-template-rows,opacity] duration-200 ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="px-6 pb-6 text-slate-600 font-sans text-[14.5px] leading-relaxed border-t border-slate-100 pt-4">
+                      <p>{t(`faq.${faq.id}.answer`)}</p>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             );
           })}

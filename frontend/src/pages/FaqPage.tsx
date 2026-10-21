@@ -1,6 +1,6 @@
 import PageHero from '../components/PageHero';
 import FaqSection from '../components/FaqSection';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ShieldCheck, Users, Cpu } from 'lucide-react';
 import { useText } from '../lib/content';
@@ -24,7 +24,6 @@ const CHALLENGES = [
 ];
 
 export default function FaqPage() {
-  const navigate = useNavigate();
   const t = useText();
   return (
     <>
@@ -70,13 +69,13 @@ export default function FaqPage() {
               );
             })}
           </div>
-          <button
-            onClick={() => navigate('/contatti')}
+          <Link to="/contatti"
+            onClick={() => window.scrollTo({ top: 0 })}
             data-testid="faq-contact-cta"
             className="mt-10 inline-flex items-center gap-2 px-6 py-3.5 bg-[#1e6fd9] hover:bg-[#155bb0] text-white font-sans text-[14px] font-bold rounded-full shadow-lg transition-all active:scale-95 cursor-pointer"
           >
             {t('page.faq.cta')}
-          </button>
+          </Link>
         </div>
       </section>
     </>

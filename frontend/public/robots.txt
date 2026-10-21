@@ -1,0 +1,29 @@
+# robots.txt — E.M Safety
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /verifica/
+Disallow: /api/certificates/
+
+# Motori di ricerca e assistenti AI: accesso consentito ai contenuti pubblici (GEO)
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot
+User-agent: Applebot-Extended
+User-agent: DuckAssistBot
+Allow: /
+Disallow: /admin
+Disallow: /verifica/
+Disallow: /api/certificates/
+
+Sitemap: https://emsafetygroup.it/sitemap.xml
+Sitemap: https://emsafetygroup.it/api/sitemap.xml

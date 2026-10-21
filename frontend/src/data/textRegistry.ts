@@ -1,5 +1,6 @@
 import { SERVICES, VALUES, METHOD, WHY, COMPANY } from './siteContent';
 import { FAQ_DATA } from './coursesData';
+import { PAGES } from '../seo/config';
 
 export interface TextSlot {
   key: string;
@@ -34,6 +35,7 @@ const G = {
   pContatti: 'Pagina Contatti',
   pCorsi: 'Pagina Corsi in Partenza',
   pVerifica: 'Pagina Verifica Attestato',
+  seo: 'SEO · Titoli e descrizioni Google',
   company: 'Dati Azienda',
 };
 
@@ -218,6 +220,12 @@ export const TEXT_SLOTS: TextSlot[] = [
   S('page.verifica.title', 'Titolo', G.pVerifica, 'Verifica l’autenticità di un'),
   S('page.verifica.highlight', 'Titolo · evidenziato', G.pVerifica, 'attestato E.M. Safety.'),
   S('page.verifica.subtitle', 'Sottotitolo', G.pVerifica, 'Ogni attestato rilasciato dal nostro centro di formazione riporta un QR code e un codice univoco. Inquadra il QR code oppure inserisci il codice per controllare in tempo reale i dati del corso svolto.', true),
+
+  // SEO: titolo (≈ 50–60 caratteri) e descrizione (≈ 120–160 caratteri) mostrati nei risultati di Google
+  ...PAGES.flatMap((pg) => [
+    S(`seo.${pg.key}.title`, `${pg.breadcrumb} · titolo Google`, G.seo, pg.title),
+    S(`seo.${pg.key}.description`, `${pg.breadcrumb} · descrizione Google`, G.seo, pg.description, true),
+  ]),
 
   // Company
   S('company.name', 'Ragione sociale', G.company, COMPANY.name),

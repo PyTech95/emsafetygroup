@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Quote, ShieldCheck, Award, BadgeCheck, Medal, ArrowRight } from 'lucide-react';
 import PageHero from '../components/PageHero';
@@ -30,7 +30,6 @@ const CERTS = [
 ];
 
 export default function TestimonianzePage() {
-  const navigate = useNavigate();
   const t = useText();
   return (
     <>
@@ -130,14 +129,14 @@ export default function TestimonianzePage() {
               );
             })}
           </div>
-          <button
-            onClick={() => navigate('/contatti')}
+          <Link to="/contatti"
+            onClick={() => window.scrollTo({ top: 0 })}
             data-testid="testimonianze-cta"
             className="mt-10 inline-flex items-center gap-2 px-6 py-3.5 bg-[#0b2545] hover:bg-[#07192e] text-white font-sans text-[14px] font-bold rounded-full shadow-md transition-all active:scale-95 cursor-pointer"
           >
             {t('page.test.cta')}
             <ArrowRight className="w-4 h-4 text-[#1e6fd9]" />
-          </button>
+          </Link>
         </div>
       </section>
     </>

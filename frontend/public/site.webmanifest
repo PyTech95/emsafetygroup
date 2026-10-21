@@ -1,0 +1,14 @@
+{
+  "name": "E.M Safety — Consulenze e Formazioni",
+  "short_name": "E.M Safety",
+  "description": "Consulenza e formazione per la sicurezza sul lavoro (D.Lgs 81/08). Sedi a Treviso e Milano.",
+  "lang": "it",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#ffffff",
+  "theme_color": "#0b2545",
+  "icons": [
+    { "src": "/assets/images/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/assets/images/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
