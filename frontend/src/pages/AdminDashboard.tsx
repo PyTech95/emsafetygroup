@@ -69,7 +69,7 @@ export default function AdminDashboard() {
     { key: 'corsi', label: 'Corsi in partenza', icon: CalendarDays, adminOnly: true },
     { key: 'iscrizioni', label: 'Iscrizioni corsi', icon: ClipboardList, adminOnly: true, badge: stats?.totals.new_enrollments || 0 },
     { key: 'attestati', label: 'Attestati & QR', icon: QrCode, adminOnly: true },
-    { key: 'testimonianze', label: 'Testimonianze', icon: MessageSquareQuote, adminOnly: true },
+    { key: 'testimonianze', label: 'Testimonianze', icon: MessageSquareQuote },
     { key: 'media', label: 'Immagini Sito', icon: Images, adminOnly: true },
     { key: 'testi', label: 'Testi Sito', icon: Type, adminOnly: true },
     { key: 'loghi', label: 'Loghi & Partner', icon: BadgeCheck, adminOnly: true },
@@ -134,7 +134,7 @@ export default function AdminDashboard() {
           {section === 'corsi' && isAdmin && <CoursesView showToast={showToast} onChange={loadStats} onShowEnrollments={(id) => { setEnrollmentCourse(id); setSection('iscrizioni'); }} />}
           {section === 'iscrizioni' && isAdmin && <EnrollmentsView showToast={showToast} courseId={enrollmentCourse} onCourseChange={setEnrollmentCourse} onChange={loadStats} onOpenCertificates={() => setSection('attestati')} />}
           {section === 'attestati' && isAdmin && <CertificatesView showToast={showToast} onChange={loadStats} />}
-          {section === 'testimonianze' && isAdmin && <TestimonialsView showToast={showToast} onChange={loadStats} />}
+          {section === 'testimonianze' && <TestimonialsView showToast={showToast} onChange={() => { if (isAdmin) loadStats(); }} />}
           {section === 'media' && isAdmin && <MediaView showToast={showToast} />}
           {section === 'testi' && isAdmin && <TextsView showToast={showToast} />}
           {section === 'loghi' && isAdmin && <LogosView showToast={showToast} />}
@@ -504,6 +504,7 @@ function ClientiView({ clients, reload, showToast }: { clients: Client[]; reload
 
 /* ------------------------------------------------------------------ Impostazioni (email) */
 const PASSWORD_LABEL: Record<string, string> = {
+  register: 'Password della casella email Register.it',
   gmail: 'Password per le app Google (16 caratteri)',
   aruba: 'Password della casella email Aruba',
   office365: 'Password della casella Microsoft 365 / Outlook',
@@ -584,6 +585,7 @@ function ImpostazioniView({ showToast, onSaved }: { showToast: (m: string) => vo
               ))}
             </div>
             <p className="font-sans text-[11.5px] text-slate-400 mt-1.5">
+              {s.provider === 'register' && 'Per le caselle @emsafetygroup.it (ospitate su Register.it): server authsmtp.securemail.pro, porta 465 SSL. Usate l’indirizzo completo e la password della casella.'}
               {s.provider === 'gmail' && 'Serve la verifica in due passaggi e una “Password per le app” (Account Google → Sicurezza → Password per le app).'}
               {s.provider === 'aruba' && 'Per le caselle @vostrodominio.it ospitate su Aruba: server smtps.aruba.it, porta 465 SSL.'}
               {s.provider === 'office365' && 'Per caselle Microsoft 365 / Outlook: l’invio SMTP autenticato deve essere abilitato per la casella.'}
