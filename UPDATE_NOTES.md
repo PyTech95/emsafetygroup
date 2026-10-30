@@ -83,3 +83,39 @@ Admin → Impostazioni → Notifiche email:
 4. Press "Salva e invia email di test".
 
 If the result says the server can't be reached, the hosting blocks SMTP: use **Brevo (API)** instead (free account; the sender address must be verified on Brevo).
+
+---
+
+# Update — Register.it email preset, automatic site refresh (30 October 2026, evening)
+
+## Email for @emsafetygroup.it
+The domain's mailboxes are hosted on **Register.it** (MX `mail.register.it`). Impostazioni now has a **Register.it** preset, selected by default:
+- server `authsmtp.securemail.pro`, port 465 SSL;
+- automatic retry on 587 STARTTLS if 465 is blocked (this retry now applies to every preset, not only Gmail).
+
+Setup: Admin → Impostazioni → Register.it → sender `info@emsafetygroup.it` → mailbox password (the one set in the Register.it Area Clienti) → recipient → toggle on → "Salva e invia email di test".
+
+## Old pages stuck in the browser cache
+nginx sends HTML without `Cache-Control`, so browsers kept showing old copies of the pages (and the old JavaScript) for hours or days after an update. Now:
+- `frontend/src/lib/freshness.ts` compares the running build with `/index.html` on the server (on load, when the tab becomes visible, and every 10 minutes).
+- When a new build is online, it refreshes the cached copies of the main pages and reloads once.
+- It only runs in the production build.
+
+This only helps from this version onwards. Anyone still on an older cached copy needs one hard refresh (Ctrl+F5 / Cmd+Shift+R).
+
+Recommended nginx config (server block), so this can't happen again:
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+    add_header Cache-Control "no-cache" always;     # HTML: always revalidated
+}
+location /static/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";   # hashed file names
+}
+```
+
+Then run `sudo nginx -t && sudo systemctl reload nginx`.
+
+## Testimonials for every Area Riservata account
+The Testimonianze section (and its API) is now also available to "cliente" accounts, not only to the administrator.

@@ -145,6 +145,8 @@ async def get_email_settings_doc():
 # Provider di posta: preset per i servizi più usati in Italia + SMTP personalizzato + API Brevo (HTTPS,
 # utile quando l'hosting blocca le porte SMTP).
 EMAIL_PROVIDERS = {
+    # le caselle @emsafetygroup.it sono su Register.it (MX: mail.register.it)
+    "register": {"label": "Register.it", "host": "authsmtp.securemail.pro", "port": 465, "security": "ssl"},
     "gmail": {"label": "Gmail / Google Workspace", "host": "smtp.gmail.com", "port": 587, "security": "starttls"},
     "aruba": {"label": "Aruba", "host": "smtps.aruba.it", "port": 465, "security": "ssl"},
     "office365": {"label": "Microsoft 365 / Outlook", "host": "smtp.office365.com", "port": 587, "security": "starttls"},
@@ -153,8 +155,8 @@ EMAIL_PROVIDERS = {
 }
 
 def _email_provider(s: dict) -> str:
-    p = (s or {}).get("provider") or "gmail"
-    return p if p in EMAIL_PROVIDERS else "gmail"
+    p = (s or {}).get("provider") or "register"
+    return p if p in EMAIL_PROVIDERS else "register"
 
 def _email_configured(s: dict) -> bool:
     s = s or {}
@@ -276,6 +278,8 @@ def _explain_smtp_error(e: Exception, prov: str) -> str:
     if isinstance(e, _smtplib.SMTPAuthenticationError):
         if prov == "gmail":
             return "Accesso rifiutato da Gmail: serve una 'Password per le app' (non la password normale) con la verifica in due passaggi attiva."
+        if prov == "register":
+            return "Accesso rifiutato da Register.it: controlla l'indirizzo completo e la password della casella (quella impostata nell'Area Clienti Register.it)."
         return "Accesso rifiutato dal server di posta: controlla email/utente e password."
     if isinstance(e, _smtplib.SMTPRecipientsRefused):
         return "Il server ha rifiutato l'indirizzo destinatario: controlla l'email che riceve le richieste."
@@ -350,8 +354,11 @@ def _send_email(cfg: dict, subject: str, html: str, reply_to: str = "") -> None:
     recipients = [to_addr] + ([cc] if cc else [])
 
     attempts = [(host, port, security)]
-    if prov == "gmail" and port == 587:
-        attempts.append((host, 465, "ssl"))  # alcuni hosting bloccano la 587: si riprova sulla 465
+    if prov != "smtp":  # alcuni hosting bloccano una delle due porte: si riprova sull'altra
+        if port == 587:
+            attempts.append((host, 465, "ssl"))
+        elif port == 465:
+            attempts.append((host, 587, "starttls"))
     last = None
     for h, pt, sec in attempts:
         try:
@@ -1464,12 +1471,12 @@ async def list_testimonials():
     return [testimonial_public(d) for d in docs]
 
 @api_router.get("/admin/testimonials")
-async def admin_list_testimonials(admin: dict = Depends(require_admin)):
+async def admin_list_testimonials(user: dict = Depends(get_current_user)):
     docs = await db.testimonials.find({}).sort(_TESTIMONIAL_SORT).to_list(1000)
     return [testimonial_admin(d) for d in docs]
 
 @api_router.post("/admin/testimonials")
-async def admin_create_testimonial(data: TestimonialInput, admin: dict = Depends(require_admin)):
+async def admin_create_testimonial(data: TestimonialInput, user: dict = Depends(get_current_user)):
     count = await db.testimonials.count_documents({})
     doc = {"id": str(uuid.uuid4()), **_testimonial_fields(data), "order": count,
            "created_at": datetime.now(timezone.utc).isoformat()}
@@ -1478,21 +1485,21 @@ async def admin_create_testimonial(data: TestimonialInput, admin: dict = Depends
     return testimonial_admin(doc)
 
 @api_router.put("/admin/testimonials/{tid}")
-async def admin_update_testimonial(tid: str, data: TestimonialInput, admin: dict = Depends(require_admin)):
+async def admin_update_testimonial(tid: str, data: TestimonialInput, user: dict = Depends(get_current_user)):
     res = await db.testimonials.update_one({"id": tid}, {"$set": _testimonial_fields(data)})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Testimonianza non trovata")
     return testimonial_admin(await db.testimonials.find_one({"id": tid}))
 
 @api_router.delete("/admin/testimonials/{tid}")
-async def admin_delete_testimonial(tid: str, admin: dict = Depends(require_admin)):
+async def admin_delete_testimonial(tid: str, user: dict = Depends(get_current_user)):
     res = await db.testimonials.delete_one({"id": tid})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Testimonianza non trovata")
     return {"ok": True}
 
 @api_router.post("/admin/testimonials/reorder")
-async def admin_reorder_testimonials(data: ReorderInput, admin: dict = Depends(require_admin)):
+async def admin_reorder_testimonials(data: ReorderInput, user: dict = Depends(get_current_user)):
     for index, tid in enumerate(data.ids):
         await db.testimonials.update_one({"id": tid}, {"$set": {"order": index}})
     return {"ok": True}
