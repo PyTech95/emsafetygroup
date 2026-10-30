@@ -251,3 +251,10 @@
 @media (prefers-reduced-motion: reduce) {
   .sparkle, .btn-shine::after, .floating-call, .floating-call-ring { animation: none !important; }
 }
+
+/* Banner cookie: comparsa senza dipendere da librerie di animazione */
+@keyframes emFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes emRiseIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.em-fade-in { animation: emFadeIn 0.2s ease-out both; }
+.em-rise-in { animation: emRiseIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .em-fade-in, .em-rise-in { animation: none; } }

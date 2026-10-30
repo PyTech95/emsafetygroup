@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X, Mail, MailCheck, MailX } from 'lucide-react';
 
 export const inputCls =
   'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#1e6fd9] focus:ring-2 focus:ring-[#1e6fd9]/10 outline-none font-sans text-[14px] text-slate-800 transition-all';
@@ -97,3 +97,21 @@ export function Chip({ status, label }: { status: string; label?: string }) {
 }
 
 export const VALIDITY_OPTIONS = [0, 1, 2, 3, 4, 5, 10];
+
+/** Esito della notifica email di una richiesta o iscrizione. */
+export function EmailStatusChip({ status, error }: { status?: string; error?: string }) {
+  if (!status) return null;
+  const map: Record<string, { label: string; cls: string; Icon: typeof Mail }> = {
+    inviata: { label: 'Email inviata', cls: 'bg-[#e8f6ef] text-[#0f6b43]', Icon: MailCheck },
+    errore: { label: 'Email non inviata', cls: 'bg-[#fdecea] text-[#a8291c]', Icon: MailX },
+    disattivata: { label: 'Email disattivata', cls: 'bg-slate-100 text-slate-500', Icon: MailX },
+    in_invio: { label: 'Email in invio…', cls: 'bg-[#e8f1fc] text-[#155bb0]', Icon: Mail },
+  };
+  const m = map[status];
+  if (!m) return null;
+  return (
+    <span title={error || undefined} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-sans text-[10.5px] font-bold uppercase tracking-wide ${m.cls}`} data-testid="email-status-chip">
+      <m.Icon className="w-3 h-3" /> {m.label}
+    </span>
+  );
+}

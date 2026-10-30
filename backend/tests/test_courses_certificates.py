@@ -131,3 +131,35 @@ class TestSeo:
         r = requests.get(f"{API}/certificates/verify/EMS-0000-NONE-NONE")
         assert r.status_code == 404
         assert "noindex" in r.headers.get("x-robots-tag", "")
+
+
+class TestTestimonialsAndEmail:
+    def test_testimonials_crud_and_visibility(self):
+        s = _admin()
+        assert requests.post(f"{API}/admin/testimonials", json={"name": "x", "text": "y"}).status_code == 401
+        pub = s.post(f"{API}/admin/testimonials", json={"name": "TEST_Luca", "role": "HSE", "text": "Ottimo lavoro.", "rating": 5, "featured": True}).json()
+        draft = s.post(f"{API}/admin/testimonials", json={"name": "TEST_Bozza", "text": "Non visibile", "published": False}).json()
+        try:
+            names = [t["name"] for t in requests.get(f"{API}/testimonials").json()]
+            assert "TEST_Luca" in names and "TEST_Bozza" not in names
+            upd = s.put(f"{API}/admin/testimonials/{pub['id']}", json={"name": "TEST_Luca", "text": "Ottimo lavoro!", "rating": 4}).json()
+            assert upd["text"] == "Ottimo lavoro!" and upd["rating"] == 4
+            assert s.post(f"{API}/admin/testimonials", json={"name": "", "text": "x"}).status_code == 400
+        finally:
+            s.delete(f"{API}/admin/testimonials/{pub['id']}")
+            s.delete(f"{API}/admin/testimonials/{draft['id']}")
+        assert "TEST_Luca" not in [t["name"] for t in requests.get(f"{API}/testimonials").json()]
+
+    def test_inquiry_records_email_status(self):
+        s = _admin()
+        r = requests.post(f"{API}/inquiries", json={"name": "TEST_Contatto", "email": "test_contatto@example.com", "message": "Prova"})
+        assert r.status_code == 200
+        qid = r.json()["id"]
+        try:
+            q = [x for x in s.get(f"{API}/inquiries").json() if x["id"] == qid][0]
+            assert q["email_status"] in ("in_invio", "inviata", "errore", "disattivata")
+            settings = s.get(f"{API}/admin/email-settings").json()
+            assert "providers" in settings and "app_password_enc" not in settings and "api_key_enc" not in settings
+        finally:
+            s.delete(f"{API}/inquiries/{qid}")
+        assert requests.post(f"{API}/inquiries", json={"name": "x", "email": "non-valida", "message": "y"}).status_code == 400

@@ -14,7 +14,7 @@ import bcrypt
 import jwt
 import requests
 from bson import ObjectId
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, UploadFile, File, Form, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, UploadFile, File, Form, Depends, BackgroundTasks
 from fastapi.responses import Response as FileResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -142,15 +142,52 @@ _FERNET = _Fernet(os.environ["EMAIL_CREDENTIALS_KEY"].encode())
 async def get_email_settings_doc():
     return await db.settings.find_one({"_id": "email"})
 
+# Provider di posta: preset per i servizi più usati in Italia + SMTP personalizzato + API Brevo (HTTPS,
+# utile quando l'hosting blocca le porte SMTP).
+EMAIL_PROVIDERS = {
+    "gmail": {"label": "Gmail / Google Workspace", "host": "smtp.gmail.com", "port": 587, "security": "starttls"},
+    "aruba": {"label": "Aruba", "host": "smtps.aruba.it", "port": 465, "security": "ssl"},
+    "office365": {"label": "Microsoft 365 / Outlook", "host": "smtp.office365.com", "port": 587, "security": "starttls"},
+    "smtp": {"label": "Altro server SMTP", "host": "", "port": 587, "security": "starttls"},
+    "brevo": {"label": "Brevo (API)", "host": "", "port": 0, "security": ""},
+}
+
+def _email_provider(s: dict) -> str:
+    p = (s or {}).get("provider") or "gmail"
+    return p if p in EMAIL_PROVIDERS else "gmail"
+
+def _email_configured(s: dict) -> bool:
+    s = s or {}
+    if not s.get("receiver_email") or not s.get("sender_email"):
+        return False
+    if _email_provider(s) == "brevo":
+        return bool(s.get("api_key_enc"))
+    if _email_provider(s) == "smtp" and not s.get("smtp_host"):
+        return False
+    return bool(s.get("app_password_enc"))
+
 def email_settings_public(s):
     s = s or {}
+    prov = _email_provider(s)
+    preset = EMAIL_PROVIDERS[prov]
     return {
+        "provider": prov,
         "sender_email": s.get("sender_email", ""),
         "sender_name": s.get("sender_name", EMAIL_FROM_NAME),
         "receiver_email": s.get("receiver_email", NOTIFY_EMAIL),
         "cc_email": s.get("cc_email", ""),
+        "smtp_host": s.get("smtp_host") or preset["host"],
+        "smtp_port": s.get("smtp_port") or preset["port"],
+        "smtp_security": s.get("smtp_security") or preset["security"],
+        "smtp_username": s.get("smtp_username", ""),
         "enabled": bool(s.get("enabled", False)),
         "has_app_password": bool(s.get("app_password_enc")),
+        "has_api_key": bool(s.get("api_key_enc")),
+        "configured": _email_configured(s),
+        "last_status": s.get("last_status", ""),
+        "last_error": s.get("last_error", ""),
+        "last_at": s.get("last_at", ""),
+        "providers": [{"key": k, **v} for k, v in EMAIL_PROVIDERS.items()],
     }
 
 _SHORTENERS = ("bit.ly", "tinyurl.com", "t.co", "is.gd", "cutt.ly", "goo.gl", "rebrand.ly")
@@ -217,30 +254,139 @@ def _assert_safe_email(subject: str, html: str) -> None:
             if not _same_site(m.group(1).lower(), real):
                 raise ValueError(f"Anchor text {m.group(1)!r} != link host {real!r}")
 
-def _smtp_send(cfg: dict, subject: str, html: str) -> None:
-    _assert_safe_email(subject, html)
+class EmailSendError(Exception):
+    """Errore di invio con messaggio in italiano da mostrare nel pannello admin."""
+
+def _smtp_once(host: str, port: int, security: str, username: str, password: str, msg, sender: str, recipients: list) -> None:
+    ctx = _ssl.create_default_context()
+    if security == "ssl":
+        with _smtplib.SMTP_SSL(host, port, timeout=20, context=ctx) as smtp:
+            smtp.login(username, password)
+            smtp.send_message(msg, from_addr=sender, to_addrs=recipients)
+    else:
+        with _smtplib.SMTP(host, port, timeout=20) as smtp:
+            smtp.ehlo()
+            if security == "starttls":
+                smtp.starttls(context=ctx)
+                smtp.ehlo()
+            smtp.login(username, password)
+            smtp.send_message(msg, from_addr=sender, to_addrs=recipients)
+
+def _explain_smtp_error(e: Exception, prov: str) -> str:
+    if isinstance(e, _smtplib.SMTPAuthenticationError):
+        if prov == "gmail":
+            return "Accesso rifiutato da Gmail: serve una 'Password per le app' (non la password normale) con la verifica in due passaggi attiva."
+        return "Accesso rifiutato dal server di posta: controlla email/utente e password."
+    if isinstance(e, _smtplib.SMTPRecipientsRefused):
+        return "Il server ha rifiutato l'indirizzo destinatario: controlla l'email che riceve le richieste."
+    if isinstance(e, _smtplib.SMTPSenderRefused):
+        return "Il server ha rifiutato il mittente: l'email mittente deve essere quella della casella usata per l'invio."
+    if isinstance(e, (_smtplib.SMTPConnectError, _smtplib.SMTPServerDisconnected, ConnectionError, TimeoutError, OSError)):
+        return "Impossibile collegarsi al server di posta (server o porta errati, oppure porta bloccata dall'hosting). Prova il metodo 'Brevo (API)'."
+    return f"Invio non riuscito ({type(e).__name__})."
+
+def _send_email(cfg: dict, subject: str, html: str, reply_to: str = "") -> None:
+    """Invia un'email al destinatario configurato. Solleva EmailSendError con un messaggio comprensibile."""
+    try:
+        _assert_safe_email(subject, html)
+    except ValueError:
+        raise EmailSendError("Contenuto dell'email bloccato dal filtro di sicurezza.")
+    prov = _email_provider(cfg)
+    sender = (cfg.get("sender_email") or "").strip()
+    sender_name = cfg.get("sender_name") or EMAIL_FROM_NAME
+    to_addr = (cfg.get("receiver_email") or "").strip()
+    cc = (cfg.get("cc_email") or "").strip()
+    if not sender or not to_addr:
+        raise EmailSendError("Configurazione incompleta: inserisci email mittente e destinatario.")
+    reply_to = reply_to if reply_to and _EMAIL_RE_SIMPLE.match(reply_to) else ""
+
+    if prov == "brevo":
+        if not cfg.get("api_key_enc"):
+            raise EmailSendError("Chiave API Brevo mancante.")
+        api_key = _FERNET.decrypt(cfg["api_key_enc"].encode()).decode()
+        body = {"sender": {"name": sender_name, "email": sender}, "to": [{"email": to_addr}],
+                "subject": subject, "htmlContent": html}
+        if cc:
+            body["cc"] = [{"email": cc}]
+        if reply_to:
+            body["replyTo"] = {"email": reply_to}
+        try:
+            r = _httpx.post("https://api.brevo.com/v3/smtp/email", json=body, timeout=20,
+                            headers={"api-key": api_key, "accept": "application/json"})
+        except Exception:
+            raise EmailSendError("Impossibile contattare Brevo: riprova più tardi.")
+        if r.status_code == 401:
+            raise EmailSendError("Chiave API Brevo non valida.")
+        if r.status_code >= 300:
+            detail = ""
+            try:
+                detail = r.json().get("message", "")
+            except Exception:
+                pass
+            raise EmailSendError(f"Brevo ha rifiutato l'invio{': ' + detail if detail else ''}. Verifica che il mittente sia confermato su Brevo.")
+        return
+
+    if not cfg.get("app_password_enc"):
+        raise EmailSendError("Password della casella email mancante.")
     password = _FERNET.decrypt(cfg["app_password_enc"].encode()).decode()
-    sender = cfg["sender_email"]
-    recipients = [cfg["receiver_email"]] + ([cfg["cc_email"]] if cfg.get("cc_email") else [])
+    preset = EMAIL_PROVIDERS[prov]
+    host = (cfg.get("smtp_host") or preset["host"]).strip()
+    port = int(cfg.get("smtp_port") or preset["port"] or 587)
+    security = cfg.get("smtp_security") or preset["security"] or "starttls"
+    username = (cfg.get("smtp_username") or sender).strip()
+    if not host:
+        raise EmailSendError("Server SMTP mancante.")
+
     msg = _EmailMessage()
-    msg["From"] = _formataddr((cfg.get("sender_name") or EMAIL_FROM_NAME, sender))
-    msg["To"] = cfg["receiver_email"]
-    if cfg.get("cc_email"):
-        msg["Cc"] = cfg["cc_email"]
+    msg["From"] = _formataddr((sender_name, sender))
+    msg["To"] = to_addr
+    if cc:
+        msg["Cc"] = cc
+    if reply_to:
+        msg["Reply-To"] = reply_to
     msg["Subject"] = subject
     msg.set_content("Apri questa email in un client che supporta HTML.")
     msg.add_alternative(html, subtype="html")
-    with _smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as smtp:
-        smtp.ehlo()
-        smtp.starttls(context=_ssl.create_default_context())
-        smtp.ehlo()
-        smtp.login(sender, password)
-        smtp.send_message(msg, from_addr=sender, to_addrs=recipients)
+    recipients = [to_addr] + ([cc] if cc else [])
 
-async def send_inquiry_notification(cfg: dict, q: dict) -> None:
-    subject = f"Nuova richiesta dal sito — {q.get('name', '')}"
-    html = _inquiry_email_html(q, cfg.get("sender_name") or EMAIL_FROM_NAME)
-    await _asyncio.to_thread(_smtp_send, cfg, subject, html)
+    attempts = [(host, port, security)]
+    if prov == "gmail" and port == 587:
+        attempts.append((host, 465, "ssl"))  # alcuni hosting bloccano la 587: si riprova sulla 465
+    last = None
+    for h, pt, sec in attempts:
+        try:
+            _smtp_once(h, pt, sec, username, password, msg, sender, recipients)
+            return
+        except _smtplib.SMTPAuthenticationError as e:
+            raise EmailSendError(_explain_smtp_error(e, prov))
+        except Exception as e:  # connessione/porta: si prova il tentativo successivo
+            last = e
+    raise EmailSendError(_explain_smtp_error(last, prov))
+
+_EMAIL_RE_SIMPLE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+async def _record_email_result(status: str, error: str = "") -> None:
+    await db.settings.update_one({"_id": "email"}, {"$set": {
+        "last_status": status, "last_error": error, "last_at": datetime.now(timezone.utc).isoformat()}})
+
+async def notify_by_email(collection: str, doc_id: str, subject: str, html: str, reply_to: str = "") -> None:
+    """Invio in background dopo la risposta al visitatore; esito salvato sulla richiesta/iscrizione."""
+    cfg = await get_email_settings_doc()
+    if not cfg or not cfg.get("enabled") or not _email_configured(cfg):
+        await db[collection].update_one({"id": doc_id}, {"$set": {"email_status": "disattivata", "email_error": ""}})
+        return
+    try:
+        await _asyncio.to_thread(_send_email, cfg, subject, html, reply_to)
+        await db[collection].update_one({"id": doc_id}, {"$set": {"email_status": "inviata", "email_error": ""}})
+        await _record_email_result("ok")
+    except EmailSendError as e:
+        logger.error("Email notification failed (%s): %s", collection, e)
+        await db[collection].update_one({"id": doc_id}, {"$set": {"email_status": "errore", "email_error": str(e)}})
+        await _record_email_result("errore", str(e))
+    except Exception as e:
+        logger.error("Email notification crashed (%s): %s", collection, type(e).__name__)
+        await db[collection].update_one({"id": doc_id}, {"$set": {"email_status": "errore", "email_error": "Errore imprevisto durante l'invio."}})
+        await _record_email_result("errore", "Errore imprevisto durante l'invio.")
 
 def _inquiry_email_html(q: dict, from_name: str = EMAIL_FROM_NAME) -> str:
     def row(label: str, value: str) -> str:
@@ -463,22 +609,25 @@ def inquiry_public(doc: dict) -> dict:
     return {"id": doc["id"], "name": doc.get("name", ""), "company": doc.get("company", ""),
             "email": doc.get("email", ""), "phone": doc.get("phone", ""),
             "service": doc.get("service", ""), "message": doc.get("message", ""),
-            "status": doc.get("status", "nuova"), "created_at": doc.get("created_at")}
+            "status": doc.get("status", "nuova"), "created_at": doc.get("created_at"),
+            "email_status": doc.get("email_status", ""), "email_error": doc.get("email_error", "")}
 
 @api_router.post("/inquiries")
-async def create_inquiry(data: InquiryInput):
+async def create_inquiry(data: InquiryInput, background: BackgroundTasks):
     doc = {"id": str(uuid.uuid4()), "name": data.name.strip(), "company": data.company or "",
            "email": data.email.strip().lower(), "phone": data.phone or "",
            "service": data.service or "", "message": data.message.strip(),
            "status": "nuova", "is_deleted": False,
            "created_at": datetime.now(timezone.utc).isoformat()}
+    if not doc["name"] or not doc["message"] or not _EMAIL_RE_SIMPLE.match(doc["email"]):
+        raise HTTPException(status_code=400, detail="Compila nome, email valida e messaggio")
+    doc["email_status"] = "in_invio"
     await db.inquiries.insert_one(doc)
-    cfg = await get_email_settings_doc()
-    if cfg and cfg.get("enabled") and cfg.get("app_password_enc") and cfg.get("receiver_email"):
-        try:
-            await send_inquiry_notification(cfg, doc)
-        except Exception as e:
-            logger.error("Inquiry notification email failed: %s", type(e).__name__)
+    cfg = await get_email_settings_doc() or {}
+    subject = f"Nuova richiesta dal sito — {doc['name']}"
+    html = _inquiry_email_html(doc, cfg.get("sender_name") or EMAIL_FROM_NAME)
+    # l'email parte dopo la risposta: il visitatore non aspetta il server di posta
+    background.add_task(notify_by_email, "inquiries", doc["id"], subject, html, doc["email"])
     return inquiry_public(doc)
 
 @api_router.get("/inquiries")
@@ -506,11 +655,17 @@ async def delete_inquiry(inquiry_id: str, admin: dict = Depends(require_admin)):
 
 # ---------------------------------------------------------------- Email settings (admin)
 class EmailSettingsInput(BaseModel):
+    provider: str = "gmail"
     sender_email: str = ""
-    app_password: Optional[str] = None
+    app_password: Optional[str] = None      # password della casella (o "password per le app" Google)
+    api_key: Optional[str] = None           # chiave API Brevo
     sender_name: str = ""
     receiver_email: str = ""
     cc_email: Optional[str] = ""
+    smtp_host: Optional[str] = ""
+    smtp_port: Optional[int] = None
+    smtp_security: Optional[str] = ""
+    smtp_username: Optional[str] = ""
     enabled: bool = False
 
 @api_router.get("/admin/email-settings")
@@ -520,32 +675,56 @@ async def get_email_settings(admin: dict = Depends(require_admin)):
 @api_router.put("/admin/email-settings")
 async def put_email_settings(data: EmailSettingsInput, admin: dict = Depends(require_admin)):
     old = await get_email_settings_doc() or {}
+    prov = data.provider if data.provider in EMAIL_PROVIDERS else "gmail"
+    for label, value in (("mittente", data.sender_email), ("destinatario", data.receiver_email), ("in copia", data.cc_email)):
+        v = (value or "").strip()
+        if v and not _EMAIL_RE_SIMPLE.match(v):
+            raise HTTPException(status_code=400, detail=f"Indirizzo email {label} non valido")
+    security = (data.smtp_security or "").strip().lower()
+    if security and security not in ("starttls", "ssl", "none"):
+        raise HTTPException(status_code=400, detail="Sicurezza SMTP non valida")
     doc = {
         "_id": "email",
+        "provider": prov,
         "sender_email": data.sender_email.strip().lower(),
         "sender_name": (data.sender_name or EMAIL_FROM_NAME).strip(),
         "receiver_email": data.receiver_email.strip().lower(),
         "cc_email": (data.cc_email or "").strip().lower(),
+        "smtp_host": (data.smtp_host or "").strip() if prov == "smtp" else "",
+        "smtp_port": int(data.smtp_port) if (prov == "smtp" and data.smtp_port) else None,
+        "smtp_security": security if prov == "smtp" else "",
+        "smtp_username": (data.smtp_username or "").strip(),
         "enabled": bool(data.enabled),
+        "last_status": old.get("last_status", ""), "last_error": old.get("last_error", ""), "last_at": old.get("last_at", ""),
     }
     if data.app_password:
-        doc["app_password_enc"] = _FERNET.encrypt(data.app_password.encode()).decode()
+        doc["app_password_enc"] = _FERNET.encrypt(data.app_password.replace(" ", "").encode() if prov == "gmail" else data.app_password.encode()).decode()
     elif old.get("app_password_enc"):
         doc["app_password_enc"] = old["app_password_enc"]
+    if data.api_key:
+        doc["api_key_enc"] = _FERNET.encrypt(data.api_key.strip().encode()).decode()
+    elif old.get("api_key_enc"):
+        doc["api_key_enc"] = old["api_key_enc"]
     await db.settings.replace_one({"_id": "email"}, doc, upsert=True)
     return email_settings_public(doc)
 
 @api_router.post("/admin/email-settings/test")
 async def test_email_settings(admin: dict = Depends(require_admin)):
     cfg = await get_email_settings_doc()
-    if not cfg or not cfg.get("app_password_enc") or not cfg.get("sender_email") or not cfg.get("receiver_email"):
-        raise HTTPException(status_code=422, detail="Configurazione email incompleta: inserisci mittente, App Password e destinatario.")
-    html = "<html><body style='font-family:Arial,sans-serif'><h2 style='color:#0b2545'>Test E.M Safety</h2><p>La configurazione email SMTP funziona correttamente. Le nuove richieste dal sito arriveranno a questo indirizzo.</p></body></html>"
+    if not _email_configured(cfg or {}):
+        raise HTTPException(status_code=422, detail="Configurazione incompleta: inserisci mittente, destinatario e password (o chiave API) e salva.")
+    html = ("<html><body style='font-family:Arial,sans-serif'><h2 style='color:#0b2545'>Test E.M Safety</h2>"
+            "<p>La configurazione email funziona correttamente. Le nuove richieste dal sito arriveranno a questo indirizzo.</p></body></html>")
     try:
-        await _asyncio.to_thread(_smtp_send, cfg, "Test configurazione email — E.M Safety", html)
+        await _asyncio.to_thread(_send_email, cfg, "Test configurazione email — E.M Safety", html)
+    except EmailSendError as e:
+        await _record_email_result("errore", str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error("SMTP test failed: %s", type(e).__name__)
-        raise HTTPException(status_code=400, detail="Invio email di test non riuscito. Verifica email mittente e App Password Google.")
+        logger.error("Email test crashed: %s", type(e).__name__)
+        await _record_email_result("errore", "Errore imprevisto durante l'invio.")
+        raise HTTPException(status_code=400, detail="Errore imprevisto durante l'invio.")
+    await _record_email_result("ok")
     return {"ok": True}
 
 # ---------------------------------------------------------------- Site assets (media manager)
@@ -753,7 +932,10 @@ async def admin_stats(admin: dict = Depends(require_admin)):
         d = (q.get("created_at") or "")[:10]
         ipd[d] = ipd.get(d, 0) + 1
     series = [{"day": d, "visitors": vagg.get(d, 0), "inquiries": ipd.get(d, 0)} for d in day_keys]
+    email_cfg = await get_email_settings_doc() or {}
     return {
+        "email": {"enabled": bool(email_cfg.get("enabled")), "configured": _email_configured(email_cfg),
+                  "last_status": email_cfg.get("last_status", ""), "last_error": email_cfg.get("last_error", "")},
         "series": series,
         "totals": {
             "visitors": await db.visits.count_documents({}),
@@ -764,6 +946,7 @@ async def admin_stats(admin: dict = Depends(require_admin)):
             "clients": await db.users.count_documents({"role": "client"}),
             "new_enrollments": await db.enrollments.count_documents({"is_deleted": {"$ne": True}, "status": "nuova"}),
             "certificates": await db.certificates.count_documents({"is_deleted": {"$ne": True}}),
+            "testimonials": await db.testimonials.count_documents({"published": True}),
         },
     }
 
@@ -1098,7 +1281,7 @@ def _enrollment_email_html(c: dict, e: dict) -> str:
     )
 
 @api_router.post("/courses/{course_id}/enroll")
-async def enroll_course(course_id: str, data: EnrollmentInput):
+async def enroll_course(course_id: str, data: EnrollmentInput, background: BackgroundTasks):
     course = await db.courses.find_one({"id": course_id, "is_deleted": {"$ne": True}, "published": True})
     if not course:
         raise HTTPException(status_code=404, detail="Corso non trovato")
@@ -1129,19 +1312,16 @@ async def enroll_course(course_id: str, data: EnrollmentInput):
            "company": _clean(data.company, 160), "tax_code": _clean(data.tax_code, 20).upper(),
            "notes": _clean(data.notes, 1000), "status": "nuova", "certificate_id": None,
            "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()}
+    doc["email_status"] = "in_invio"
     await db.enrollments.insert_one(doc)
-    cfg = await get_email_settings_doc()
-    if cfg and cfg.get("enabled") and cfg.get("app_password_enc") and cfg.get("receiver_email"):
-        try:
-            subject = f"Nuova iscrizione: {course.get('title', '')} — {first} {last}"
-            await _asyncio.to_thread(_smtp_send, cfg, subject, _enrollment_email_html(course, doc))
-        except Exception as e:
-            logger.error("Enrollment notification email failed: %s", type(e).__name__)
+    subject = f"Nuova iscrizione: {course.get('title', '')} — {first} {last}"
+    background.add_task(notify_by_email, "enrollments", doc["id"], subject, _enrollment_email_html(course, doc), email)
     return {"ok": True}
 
 def enrollment_admin(doc: dict) -> dict:
     keys = ("course_id", "course_title", "course_date", "first_name", "last_name", "email", "phone",
-            "birth_place", "birth_date", "company", "tax_code", "notes", "status", "certificate_id", "created_at")
+            "birth_place", "birth_date", "company", "tax_code", "notes", "status", "certificate_id", "created_at",
+            "email_status", "email_error")
     return {"id": doc["id"], **{k: doc.get(k) for k in keys}}
 
 @api_router.get("/admin/courses")
@@ -1242,6 +1422,98 @@ async def admin_issue_course_certificates(course_id: str, admin: dict = Depends(
             continue
         created.append(certificate_admin(await _issue_from_enrollment(enr, course)))
     return {"created": created}
+
+# ================================================================ Testimonianze (gestite dal pannello admin)
+class TestimonialInput(BaseModel):
+    name: str
+    role: Optional[str] = ""
+    company: Optional[str] = ""
+    text: str
+    rating: Optional[int] = None          # 1–5 stelle, facoltativo
+    photo_path: Optional[str] = None      # percorso restituito da POST /api/uploads ("" = rimuovi)
+    featured: bool = False
+    published: bool = True
+
+def testimonial_public(d: dict) -> dict:
+    photo = d.get("photo_path")
+    return {"id": d["id"], "name": d.get("name", ""), "role": d.get("role", ""), "company": d.get("company", ""),
+            "text": d.get("text", ""), "rating": d.get("rating"), "photo_url": f"/api/files/{photo}" if photo else None,
+            "featured": bool(d.get("featured")), "order": d.get("order", 0), "created_at": d.get("created_at")}
+
+def testimonial_admin(d: dict) -> dict:
+    out = testimonial_public(d)
+    out.update({"published": bool(d.get("published", True)), "photo_path": d.get("photo_path")})
+    return out
+
+def _testimonial_fields(data: TestimonialInput) -> dict:
+    name, text = _clean(data.name, 120), (data.text or "").strip()[:1500]
+    if not name or not text:
+        raise HTTPException(status_code=400, detail="Nome e testo della testimonianza sono obbligatori")
+    rating = data.rating if data.rating in (1, 2, 3, 4, 5) else None
+    out = {"name": name, "role": _clean(data.role, 120), "company": _clean(data.company, 160), "text": text,
+           "rating": rating, "featured": bool(data.featured), "published": bool(data.published)}
+    if data.photo_path is not None:
+        out["photo_path"] = data.photo_path.strip() or None
+    return out
+
+_TESTIMONIAL_SORT = [("featured", -1), ("order", 1), ("created_at", -1)]
+
+@api_router.get("/testimonials")
+async def list_testimonials():
+    docs = await db.testimonials.find({"published": True}).sort(_TESTIMONIAL_SORT).to_list(500)
+    return [testimonial_public(d) for d in docs]
+
+@api_router.get("/admin/testimonials")
+async def admin_list_testimonials(admin: dict = Depends(require_admin)):
+    docs = await db.testimonials.find({}).sort(_TESTIMONIAL_SORT).to_list(1000)
+    return [testimonial_admin(d) for d in docs]
+
+@api_router.post("/admin/testimonials")
+async def admin_create_testimonial(data: TestimonialInput, admin: dict = Depends(require_admin)):
+    count = await db.testimonials.count_documents({})
+    doc = {"id": str(uuid.uuid4()), **_testimonial_fields(data), "order": count,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    doc.setdefault("photo_path", None)
+    await db.testimonials.insert_one(doc)
+    return testimonial_admin(doc)
+
+@api_router.put("/admin/testimonials/{tid}")
+async def admin_update_testimonial(tid: str, data: TestimonialInput, admin: dict = Depends(require_admin)):
+    res = await db.testimonials.update_one({"id": tid}, {"$set": _testimonial_fields(data)})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Testimonianza non trovata")
+    return testimonial_admin(await db.testimonials.find_one({"id": tid}))
+
+@api_router.delete("/admin/testimonials/{tid}")
+async def admin_delete_testimonial(tid: str, admin: dict = Depends(require_admin)):
+    res = await db.testimonials.delete_one({"id": tid})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Testimonianza non trovata")
+    return {"ok": True}
+
+@api_router.post("/admin/testimonials/reorder")
+async def admin_reorder_testimonials(data: ReorderInput, admin: dict = Depends(require_admin)):
+    for index, tid in enumerate(data.ids):
+        await db.testimonials.update_one({"id": tid}, {"$set": {"order": index}})
+    return {"ok": True}
+
+async def migrate_custom_quote_to_testimonial():
+    """Una sola volta: se la citazione della vecchia pagina Testimonianze era stata personalizzata
+    da Testi Sito, diventa la prima testimonianza (il testo di esempio predefinito non viene importato)."""
+    flags = await db.settings.find_one({"_id": "migrations"}) or {}
+    if flags.get("testimonials_v1"):
+        return
+    if await db.testimonials.count_documents({}) == 0:
+        quote = await db.site_content.find_one({"key": "page.test.quote"})
+        if quote and (quote.get("value") or "").strip():
+            name = await db.site_content.find_one({"key": "page.test.quoteName"}) or {}
+            role = await db.site_content.find_one({"key": "page.test.quoteRole"}) or {}
+            await db.testimonials.insert_one({
+                "id": str(uuid.uuid4()), "name": (name.get("value") or "Cliente").strip(), "role": (role.get("value") or "").strip(),
+                "company": "", "text": quote["value"].strip().strip('"“”'), "rating": None, "photo_path": None,
+                "featured": True, "published": True, "order": 0, "created_at": datetime.now(timezone.utc).isoformat()})
+            logger.info("Migrated customized testimonial quote")
+    await db.settings.update_one({"_id": "migrations"}, {"$set": {"testimonials_v1": True}}, upsert=True)
 
 # ================================================================ SEO: sitemap dinamica (corsi in partenza + storie)
 PUBLIC_SITE_URL = (os.environ.get("PUBLIC_SITE_URL") or "https://emsafetygroup.it").strip().rstrip("/")
@@ -1370,6 +1642,8 @@ async def on_startup():
     await db.courses.create_index("id", unique=True)
     await db.enrollments.create_index("id", unique=True)
     await db.enrollments.create_index("course_id")
+    await db.testimonials.create_index("id", unique=True)
+    await migrate_custom_quote_to_testimonial()
     await seed_logos()
     try:
         init_storage()

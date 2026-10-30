@@ -51,6 +51,8 @@ export interface Enrollment {
   status: 'nuova' | 'confermata' | 'annullata';
   certificate_id: string | null;
   created_at: string;
+  email_status?: string;
+  email_error?: string;
 }
 
 export interface PublicCertificate {
