@@ -14,6 +14,7 @@ import ContactSection from '../components/ContactSection';
 import FounderSection from '../components/FounderSection';
 import GruppoSection from '../components/GruppoSection';
 import ClientiSection from '../components/ClientiSection';
+import TestimonialsSection from '../components/TestimonialsSection';
 import { CheckCircle2 } from 'lucide-react';
 import { scrollToId } from '../lib/scroll';
 
@@ -58,6 +59,7 @@ export default function HomePage() {
       <GruppoSection />
       <SectionChapter number="08" title="Hanno Creduto in Noi" />
       <ClientiSection />
+      <TestimonialsSection />
       <SectionChapter number="09" title="Domande Frequenti" />
       <FaqSection />
       <SectionChapter number="10" title="Contatti" />

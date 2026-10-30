@@ -3,7 +3,7 @@ import { Loader2, Trash2, Award, QrCode, FileSpreadsheet, Mail, Phone, Inbox, Se
 import API from '../../lib/api';
 import { AdminCourse, AdminCertificate, Enrollment, apiError, fmtDate } from '../../lib/training';
 import { downloadBlob, toCsv, qrZip } from '../../lib/qr';
-import { inputCls, btnPrimary, btnSecondary, iconBtn, Card, Chip, ConfirmButton, STATUS_CHIP } from './ui';
+import { inputCls, btnPrimary, btnSecondary, iconBtn, Card, Chip, ConfirmButton, STATUS_CHIP, EmailStatusChip } from './ui';
 
 const STATUSES: Enrollment['status'][] = ['nuova', 'confermata', 'annullata'];
 
@@ -126,6 +126,7 @@ export default function EnrollmentsView({ showToast, courseId, onCourseChange, o
                       <span className="font-display text-[16px] font-bold text-[#0b2545]">{e.last_name} {e.first_name}</span>
                       <Chip status={e.status} />
                       {e.certificate_id && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#e8f1fc] text-[#155bb0] font-sans text-[10.5px] font-bold uppercase"><QrCode className="w-3 h-3" /> Attestato emesso</span>}
+                      <EmailStatusChip status={e.email_status} error={e.email_error} />
                     </div>
                     <div className="font-sans text-[12.5px] text-slate-500 mt-0.5">
                       Nato/a a {e.birth_place} il {fmtDate(e.birth_date)}{e.tax_code ? ` · C.F. ${e.tax_code}` : ''}{e.company ? ` · ${e.company}` : ''}

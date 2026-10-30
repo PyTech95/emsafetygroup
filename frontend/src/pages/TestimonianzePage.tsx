@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Quote, ShieldCheck, Award, BadgeCheck, Medal, ArrowRight } from 'lucide-react';
 import PageHero from '../components/PageHero';
+import TestimonialCard, { FeaturedTestimonial } from '../components/TestimonialCard';
+import { useTestimonials } from '../lib/testimonials';
 import { useText } from '../lib/content';
 
 const CASES = [
@@ -31,6 +33,7 @@ const CERTS = [
 
 export default function TestimonianzePage() {
   const t = useText();
+  const items = useTestimonials();
   return (
     <>
       <PageHero
@@ -40,33 +43,34 @@ export default function TestimonianzePage() {
         subtitle={t('page.test.subtitle')}
       />
 
-      {/* Highlighted testimonial */}
-      <section className="bg-white py-20 lg:py-24" data-testid="testimonianze-quote">
-        <div className="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.6 }}
-            className="relative bg-[#0b2545] rounded-[28px] p-7 sm:p-10 lg:p-14 text-white shadow-2xl overflow-hidden"
-          >
-            <Quote className="w-14 h-14 text-[#1e6fd9]/30 absolute top-6 right-8" />
-            <p className="font-display text-[20px] sm:text-[28px] font-bold leading-snug tracking-tight relative z-10">
-              {t('page.test.quote')}
-            </p>
-            <div className="mt-8 flex items-center gap-4">
-              <img
-                src="https://images.unsplash.com/photo-1593757147298-e064ed1419e5?fit=crop&crop=entropy%2Cfaces&auto=format%2Ccompress&w=96&h=96"
-                alt="Marco Rossi"
-                className="w-14 h-14 rounded-full object-cover ring-2 ring-[#1e6fd9]/50"
-                loading="lazy"
-              />
-              <div>
-                <div className="font-display text-[17px] font-bold">{t('page.test.quoteName')}</div>
-                <div className="font-sans text-[13px] text-[#9ec7f0]">{t('page.test.quoteRole')}</div>
-              </div>
+      {/* Testimonianze dal pannello admin */}
+      <section className="bg-white py-16 lg:py-24" data-testid="testimonianze-list">
+        <div className="max-w-[1320px] 2xl:max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
+          {items === null && <div className="max-w-[900px] mx-auto h-64 rounded-[28px] bg-slate-100 animate-pulse" />}
+          {items && items.length === 0 && (
+            <div className="max-w-[760px] mx-auto text-center rounded-3xl border-2 border-dashed border-slate-200 px-6 py-12" data-testid="testimonianze-empty">
+              <Quote className="w-10 h-10 text-[#1e6fd9] mx-auto mb-4" />
+              <h2 className="font-display text-[22px] font-bold text-[#0b2545]">Hai lavorato con noi?</h2>
+              <p className="font-sans text-[15px] text-slate-600 mt-2 leading-relaxed">Raccontaci la tua esperienza con E.M Safety: pubblicheremo qui le testimonianze dei nostri clienti.</p>
+              <Link to="/contatti" onClick={() => window.scrollTo({ top: 0 })} className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0b2545] text-white font-sans text-[14px] font-bold">Scrivici <ArrowRight className="w-4 h-4 text-[#1e6fd9]" /></Link>
             </div>
-          </motion.div>
+          )}
+          {items && items.length > 0 && (
+            <>
+              <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-60px' }} transition={{ duration: 0.6 }} className="max-w-[900px] mx-auto">
+                <FeaturedTestimonial t={items[0]} />
+              </motion.div>
+              {items.length > 1 && (
+                <div className={`grid sm:grid-cols-2 gap-5 lg:gap-6 mt-10 lg:mt-14 ${items.length - 1 <= 2 ? 'max-w-[900px] mx-auto' : 'lg:grid-cols-3'}`}>
+                  {items.slice(1).map((t, i) => (
+                    <motion.div key={t.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.45, delay: (i % 3) * 0.08 }}>
+                      <TestimonialCard t={t} />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </section>
 

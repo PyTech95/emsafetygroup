@@ -43,3 +43,43 @@ Modified:
 - frontend/src/data/textRegistry.ts
 - frontend/src/pages/AdminDashboard.tsx
 - memory/PRD.md
+
+---
+
+# Update — Email notifications, cookie popup fix, testimonials (30 October 2026)
+
+## Why contact emails were not arriving
+Contact-form requests were always saved (Admin → Richieste). An email is only sent when Admin → Impostazioni has a working mail account and the toggle is on. Before this update:
+- sending failed silently;
+- there was no way to see why;
+- only Gmail was supported.
+
+## What changed
+- **Email notifications:**
+  - Choose the mail service: Gmail / Google Workspace, Aruba, Microsoft 365 / Outlook, any other SMTP server, or Brevo (API over HTTPS, for when the hosting blocks email ports).
+  - "Salva e invia email di test" shows the exact reason when sending fails (wrong password, Gmail app password missing, server or port blocked).
+  - Every request and course enrollment shows "Email inviata / non inviata / disattivata".
+  - The dashboard shows a red warning while notifications are off or failing.
+  - Emails are sent in the background, so the visitor gets the confirmation immediately.
+  - Reply-To is the customer's address, so replying writes directly to them.
+  - Gmail automatically retries on port 465 if 587 is blocked.
+- **Cookie popup:**
+  - The buttons are always visible at the bottom, even on laptop screens; before, they were below the screen edge.
+  - The text scrolls on its own.
+  - It closes instantly.
+  - ESC works like the X.
+  - The choice is also saved in a cookie, so the popup doesn't come back in browsers that block local storage.
+- **Testimonials:**
+  - New admin section Testimonianze: add, edit, delete, reorder, publish or hide, and feature.
+  - Each testimonial has an optional photo and 1–5 stars.
+  - The Testimonianze page and a new "Dicono di noi" home section read them live.
+  - The old sample quote ("Marco Rossi", stock photo) was removed. If it had been customised in Testi Sito, it is imported automatically as the first testimonial.
+
+## Setup after deploy
+Admin → Impostazioni → Notifiche email:
+1. Choose the service.
+2. Enter the sender address and password (for Gmail, an "App password"), and the recipient address.
+3. Turn the toggle on.
+4. Press "Salva e invia email di test".
+
+If the result says the server can't be reached, the hosting blocks SMTP: use **Brevo (API)** instead (free account; the sender address must be verified on Brevo).

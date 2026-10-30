@@ -26,10 +26,27 @@ declare global {
   }
 }
 
-export function getConsent(): ConsentState | null {
+function readCookie(): string | null {
   try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return null;
+    const m = document.cookie.split('; ').find((c) => c.startsWith(`${KEY}=`));
+    return m ? decodeURIComponent(m.slice(KEY.length + 1)) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCookie(value: string) {
+  try {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${KEY}=${encodeURIComponent(value)}; Max-Age=${MAX_AGE_DAYS * 86400}; Path=/; SameSite=Lax${secure}`;
+  } catch {
+    /* cookie non disponibili */
+  }
+}
+
+function parse(raw: string | null): ConsentState | null {
+  if (!raw) return null;
+  try {
     const c = JSON.parse(raw) as ConsentState;
     if (c.version !== VERSION) return null;
     const age = (Date.now() - new Date(c.updatedAt).getTime()) / 86400000;
@@ -40,13 +57,25 @@ export function getConsent(): ConsentState | null {
   }
 }
 
+let memory: ConsentState | null = null; // ultima scelta valida per questa visita, anche senza storage
+
+/** Legge la scelta da localStorage, poi dal cookie tecnico (browser che bloccano lo storage). */
+export function getConsent(): ConsentState | null {
+  let fromStorage: string | null = null;
+  try { fromStorage = window.localStorage.getItem(KEY); } catch { /* storage bloccato */ }
+  return parse(fromStorage) || parse(readCookie()) || memory;
+}
+
 export function saveConsent(choice: { statistics: boolean; marketing: boolean }): ConsentState {
   const state: ConsentState = { necessary: true, ...choice, updatedAt: new Date().toISOString(), version: VERSION };
+  const raw = JSON.stringify(state);
+  memory = state;
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(state));
+    window.localStorage.setItem(KEY, raw);
   } catch {
-    /* storage non disponibile (es. navigazione privata): la scelta vale per questa visita */
+    /* storage non disponibile (es. navigazione privata): resta il cookie */
   }
+  writeCookie(raw);
   if (typeof window.gtag === 'function') {
     window.gtag('consent', 'update', {
       analytics_storage: state.statistics ? 'granted' : 'denied',

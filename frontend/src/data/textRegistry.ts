@@ -180,12 +180,10 @@ export const TEXT_SLOTS: TextSlot[] = [
   S('page.chi.cta', 'Pulsante', G.pChi, 'Parla con noi'),
 
   S('page.test.label', 'Etichetta', G.pTest, 'Testimonianze'),
+  // Le testimonianze si gestiscono dal pannello admin → Testimonianze
   S('page.test.title', 'Titolo', G.pTest, 'Testimonianze autentiche dai'),
   S('page.test.highlight', 'Titolo · evidenziato', G.pTest, 'clienti soddisfatti.'),
   S('page.test.subtitle', 'Sottotitolo', G.pTest, 'Progetti reali di consulenza e formazione: come abbiamo aiutato le aziende a raggiungere conformità, efficienza e piena tutela dei lavoratori.', true),
-  S('page.test.quote', 'Citazione in evidenza', G.pTest, '"La nostra collaborazione con E.M Safety ha garantito soluzioni precise e conformi, migliorando significativamente la sicurezza aziendale."', true),
-  S('page.test.quoteName', 'Citazione · nome', G.pTest, 'Marco Rossi'),
-  S('page.test.quoteRole', 'Citazione · ruolo', G.pTest, 'Responsabile Sicurezza Aziendale'),
   S('page.test.certsTitle1', 'Certificazioni · titolo 1', G.pTest, 'Affidabilità comprovata,'),
   S('page.test.certsTitle2', 'Certificazioni · titolo 2 (blu)', G.pTest, 'sicurezza garantita.'),
   S('page.test.certsDescription', 'Certificazioni · descrizione', G.pTest, 'Le nostre certificazioni principali e i riconoscimenti ottenuti nel settore testimoniano la nostra professionalità e serietà.', true),
@@ -209,6 +207,10 @@ export const TEXT_SLOTS: TextSlot[] = [
   S('page.contatti.title', 'Titolo', G.pContatti, 'Contattaci per assistenza e'),
   S('page.contatti.highlight', 'Titolo · evidenziato', G.pContatti, 'informazioni sui nostri servizi.'),
   S('page.contatti.subtitle', 'Sottotitolo', G.pContatti, 'Hai bisogno di una consulenza o di un preventivo gratuito? Compila il modulo o contattaci direttamente: ti risponderemo entro 24-48 ore lavorative.', true),
+
+  S('home.testimonials.label', 'Home · Testimonianze · etichetta', G.pTest, 'Dicono di noi'),
+  S('home.testimonials.title', 'Home · Testimonianze · titolo', G.pTest, 'La parola ai nostri clienti'),
+  S('home.testimonials.cta', 'Home · Testimonianze · link', G.pTest, 'Tutte le testimonianze'),
 
   S('page.corsi.label', 'Etichetta', G.pCorsi, 'Corsi in Partenza'),
   S('page.corsi.title', 'Titolo', G.pCorsi, 'Formazione sulla sicurezza:'),

@@ -4,12 +4,15 @@ import {
   LogOut, Plus, Trash2, UploadCloud, Home, Loader2, CheckCircle2, X, ImageIcon,
   Inbox, Users, MailOpen, Newspaper, LayoutDashboard, Images, Settings, Menu,
   TrendingUp, Mail, Send, RotateCcw, Pencil, Type, BadgeCheck, CalendarDays, ClipboardList, QrCode,
+  MessageSquareQuote, AlertTriangle, MailCheck, MailX,
 } from 'lucide-react';
 import TextsView from './admin/TextsView';
 import LogosView from './admin/LogosView';
 import CoursesView from './admin/CoursesView';
 import EnrollmentsView from './admin/EnrollmentsView';
 import CertificatesView from './admin/CertificatesView';
+import TestimonialsView from './admin/TestimonialsView';
+import { EmailStatusChip } from './admin/ui';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import API, { fileUrl, BACKEND } from '../lib/api';
@@ -18,12 +21,19 @@ import { MEDIA_SLOTS } from '../data/mediaRegistry';
 import EmSafetyLogo from '../components/EmSafetyLogo';
 
 interface Story { id: string; title: string; sector: string; summary: string; content: string; cover_path?: string | null; cover_url?: string | null; created_at: string; }
-interface Inquiry { id: string; name: string; company: string; email: string; phone: string; service: string; message: string; status: string; created_at: string; }
+interface Inquiry { id: string; name: string; company: string; email: string; phone: string; service: string; message: string; status: string; created_at: string; email_status?: string; email_error?: string; }
 interface Client { id: string; email: string; name: string; created_at: string; }
-interface Stats { series: { day: string; visitors: number; inquiries: number }[]; totals: { visitors: number; visits_today: number; inquiries: number; new_inquiries: number; stories: number; clients: number; new_enrollments?: number; certificates?: number }; }
-interface EmailSettings { sender_email: string; sender_name: string; receiver_email: string; cc_email: string; enabled: boolean; has_app_password: boolean; }
+interface EmailHealth { enabled: boolean; configured: boolean; last_status: string; last_error: string }
+interface Stats { email?: EmailHealth; series: { day: string; visitors: number; inquiries: number }[]; totals: { visitors: number; visits_today: number; inquiries: number; new_inquiries: number; stories: number; clients: number; new_enrollments?: number; certificates?: number }; }
+interface EmailProvider { key: string; label: string; host: string; port: number; security: string }
+interface EmailSettings {
+  provider: string; sender_email: string; sender_name: string; receiver_email: string; cc_email: string;
+  smtp_host: string; smtp_port: number | string; smtp_security: string; smtp_username: string;
+  enabled: boolean; has_app_password: boolean; has_api_key: boolean; configured: boolean;
+  last_status: string; last_error: string; last_at: string; providers: EmailProvider[];
+}
 
-type Section = 'dashboard' | 'corsi' | 'iscrizioni' | 'attestati' | 'media' | 'testi' | 'loghi' | 'storie' | 'richieste' | 'clienti' | 'impostazioni';
+type Section = 'dashboard' | 'corsi' | 'iscrizioni' | 'attestati' | 'testimonianze' | 'media' | 'testi' | 'loghi' | 'storie' | 'richieste' | 'clienti' | 'impostazioni';
 const emptyStory = { title: '', sector: '', summary: '', content: '', cover_path: '' as string | null };
 
 const NAVY = '#0b2545';
@@ -59,6 +69,7 @@ export default function AdminDashboard() {
     { key: 'corsi', label: 'Corsi in partenza', icon: CalendarDays, adminOnly: true },
     { key: 'iscrizioni', label: 'Iscrizioni corsi', icon: ClipboardList, adminOnly: true, badge: stats?.totals.new_enrollments || 0 },
     { key: 'attestati', label: 'Attestati & QR', icon: QrCode, adminOnly: true },
+    { key: 'testimonianze', label: 'Testimonianze', icon: MessageSquareQuote, adminOnly: true },
     { key: 'media', label: 'Immagini Sito', icon: Images, adminOnly: true },
     { key: 'testi', label: 'Testi Sito', icon: Type, adminOnly: true },
     { key: 'loghi', label: 'Loghi & Partner', icon: BadgeCheck, adminOnly: true },
@@ -118,17 +129,19 @@ export default function AdminDashboard() {
         </header>
 
         <main className="flex-1 p-4 sm:p-8 max-w-[1200px] w-full mx-auto">
+          {isAdmin && stats?.email && (section === 'dashboard' || section === 'richieste' || section === 'iscrizioni') && <EmailHealthBanner email={stats.email} onGo={() => setSection('impostazioni')} />}
           {section === 'dashboard' && isAdmin && <DashboardView stats={stats} inquiries={inquiries} onGo={setSection} />}
           {section === 'corsi' && isAdmin && <CoursesView showToast={showToast} onChange={loadStats} onShowEnrollments={(id) => { setEnrollmentCourse(id); setSection('iscrizioni'); }} />}
           {section === 'iscrizioni' && isAdmin && <EnrollmentsView showToast={showToast} courseId={enrollmentCourse} onCourseChange={setEnrollmentCourse} onChange={loadStats} onOpenCertificates={() => setSection('attestati')} />}
           {section === 'attestati' && isAdmin && <CertificatesView showToast={showToast} onChange={loadStats} />}
+          {section === 'testimonianze' && isAdmin && <TestimonialsView showToast={showToast} onChange={loadStats} />}
           {section === 'media' && isAdmin && <MediaView showToast={showToast} />}
           {section === 'testi' && isAdmin && <TextsView showToast={showToast} />}
           {section === 'loghi' && isAdmin && <LogosView showToast={showToast} />}
           {section === 'storie' && <StorieView stories={stories} reload={() => { loadStories(); if (isAdmin) loadStats(); }} showToast={showToast} />}
           {section === 'richieste' && isAdmin && <RichiesteView inquiries={inquiries} reload={() => { loadInquiries(); loadStats(); }} showToast={showToast} />}
           {section === 'clienti' && isAdmin && <ClientiView clients={clients} reload={() => { loadClients(); loadStats(); }} showToast={showToast} />}
-          {section === 'impostazioni' && isAdmin && <ImpostazioniView showToast={showToast} />}
+          {section === 'impostazioni' && isAdmin && <ImpostazioniView showToast={showToast} onSaved={loadStats} />}
         </main>
       </div>
 
@@ -138,6 +151,24 @@ export default function AdminDashboard() {
           <span className="font-sans text-[13px] font-medium">{toast}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ Stato notifiche email */
+function EmailHealthBanner({ email, onGo }: { email: EmailHealth; onGo: () => void }) {
+  let text = '';
+  if (!email.configured) text = 'Le notifiche email non sono configurate: le nuove richieste e iscrizioni arrivano solo in questo pannello, non nella vostra casella.';
+  else if (!email.enabled) text = 'Le notifiche email sono disattivate: le nuove richieste e iscrizioni arrivano solo in questo pannello.';
+  else if (email.last_status === 'errore') text = `L’ultimo invio email non è riuscito: ${email.last_error}`;
+  if (!text) return null;
+  return (
+    <div className="mb-6 rounded-2xl border border-[#f5c6c0] bg-[#fdecea] px-4 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3" data-testid="email-health-banner">
+      <AlertTriangle className="w-5 h-5 text-[#a8291c] shrink-0" />
+      <p className="flex-1 font-sans text-[13.5px] text-[#7a1f15] leading-relaxed">{text}</p>
+      <button onClick={onGo} className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#a8291c] hover:bg-[#8e2216] text-white font-sans text-[13px] font-bold cursor-pointer">
+        <Settings className="w-4 h-4" /> Configura email
+      </button>
     </div>
   );
 }
@@ -406,11 +437,12 @@ function RichiesteView({ inquiries, reload, showToast }: { inquiries: Inquiry[];
           {inquiries.map((q) => (
             <div key={q.id} data-testid={`inquiry-${q.id}`} className={`bg-white rounded-2xl border p-5 ${q.status === 'nuova' ? 'border-amber-300 shadow-[0_8px_24px_rgba(11,37,69,0.06)]' : 'border-slate-200'}`}>
               <div className="flex flex-wrap items-center gap-3 justify-between">
-                <div className="flex items-center gap-3 min-w-0"><span className={`px-2.5 py-1 rounded-full font-sans text-[11px] font-bold uppercase tracking-wide ${q.status === 'nuova' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`} data-testid={`inquiry-status-${q.id}`}>{q.status}</span><span className="font-display text-[16px] font-bold text-[#0b2545] truncate">{q.name}{q.company ? ` · ${q.company}` : ''}</span></div>
+                <div className="flex items-center gap-3 min-w-0"><span className={`px-2.5 py-1 rounded-full font-sans text-[11px] font-bold uppercase tracking-wide ${q.status === 'nuova' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`} data-testid={`inquiry-status-${q.id}`}>{q.status}</span><span className="font-display text-[16px] font-bold text-[#0b2545] truncate">{q.name}{q.company ? ` · ${q.company}` : ''}</span><EmailStatusChip status={q.email_status} error={q.email_error} /></div>
                 <span className="font-sans text-[12px] text-slate-400">{q.created_at ? new Date(q.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 font-sans text-[13px] text-slate-500"><a href={`mailto:${q.email}`} className="hover:text-[#0b2545] underline underline-offset-2">{q.email}</a>{q.phone && <span>{q.phone}</span>}{q.service && <span className="font-semibold text-slate-600">{q.service}</span>}</div>
               <p className="font-sans text-[14px] text-slate-700 leading-relaxed mt-3 whitespace-pre-wrap">{q.message}</p>
+              {q.email_status === 'errore' && q.email_error && <p className="font-sans text-[12.5px] text-[#a8291c] mt-2">Notifica email non inviata: {q.email_error}</p>}
               <div className="flex gap-2 mt-4">
                 <button onClick={() => toggle(q)} data-testid={`inquiry-toggle-${q.id}`} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 font-sans text-[12.5px] font-bold text-slate-700 transition-colors cursor-pointer"><MailOpen className="w-4 h-4" /> {q.status === 'nuova' ? 'Segna come letta' : 'Segna come nuova'}</button>
                 <button onClick={() => remove(q.id)} data-testid={`inquiry-delete-${q.id}`} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 font-sans text-[12.5px] font-bold transition-colors cursor-pointer"><Trash2 className="w-4 h-4" /> Elimina</button>
@@ -471,54 +503,134 @@ function ClientiView({ clients, reload, showToast }: { clients: Client[]; reload
 }
 
 /* ------------------------------------------------------------------ Impostazioni (email) */
-function ImpostazioniView({ showToast }: { showToast: (m: string) => void }) {
-  const [s, setS] = useState<EmailSettings & { app_password: string }>({ sender_email: '', sender_name: '', receiver_email: '', cc_email: '', enabled: false, has_app_password: false, app_password: '' });
-  const [loading, setLoading] = useState(true);
+const PASSWORD_LABEL: Record<string, string> = {
+  gmail: 'Password per le app Google (16 caratteri)',
+  aruba: 'Password della casella email Aruba',
+  office365: 'Password della casella Microsoft 365 / Outlook',
+  smtp: 'Password della casella email',
+};
+
+function ImpostazioniView({ showToast, onSaved }: { showToast: (m: string) => void; onSaved?: () => void }) {
+  const [s, setS] = useState<(EmailSettings & { app_password: string; api_key: string }) | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const set = (k: string, v: string | boolean) => setS((x) => ({ ...x, [k]: v }));
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const set = (k: string, v: string | boolean | number) => setS((x) => (x ? { ...x, [k]: v } : x));
 
-  useEffect(() => { API.get('/admin/email-settings').then((r) => setS((x) => ({ ...x, ...r.data, app_password: '' }))).catch(() => {}).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    API.get('/admin/email-settings').then((r) => setS({ ...r.data, app_password: '', api_key: '' })).catch(() => showToast('Impossibile caricare le impostazioni'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const err = (e: unknown, fallback: string) => { const d = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail; return typeof d === 'string' ? d : fallback; };
 
   const save = async () => {
+    if (!s) return false;
     setSaving(true);
     try {
-      const payload: Record<string, unknown> = { sender_email: s.sender_email, sender_name: s.sender_name, receiver_email: s.receiver_email, cc_email: s.cc_email, enabled: s.enabled };
+      const payload: Record<string, unknown> = {
+        provider: s.provider, sender_email: s.sender_email, sender_name: s.sender_name, receiver_email: s.receiver_email, cc_email: s.cc_email,
+        smtp_host: s.smtp_host, smtp_port: s.smtp_port ? Number(s.smtp_port) : null, smtp_security: s.smtp_security, smtp_username: s.smtp_username, enabled: s.enabled,
+      };
       if (s.app_password) payload.app_password = s.app_password;
+      if (s.api_key) payload.api_key = s.api_key;
       const { data } = await API.put('/admin/email-settings', payload);
-      setS((x) => ({ ...x, ...data, app_password: '' }));
-      showToast('Impostazioni email salvate');
-    } catch { showToast('Errore durante il salvataggio'); } finally { setSaving(false); }
+      setS({ ...data, app_password: '', api_key: '' });
+      onSaved?.();
+      return true;
+    } catch (e) { showToast(err(e, 'Errore durante il salvataggio')); return false; } finally { setSaving(false); }
   };
+  const saveAndToast = async () => { if (await save()) showToast('Impostazioni email salvate'); };
   const test = async () => {
-    setTesting(true);
-    try { await API.post('/admin/email-settings/test'); showToast('Email di test inviata! Controlla la casella.'); }
-    catch (err: unknown) { const d = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail; showToast(typeof d === 'string' ? d : 'Invio test non riuscito'); } finally { setTesting(false); }
+    setTesting(true); setTestResult(null);
+    try {
+      if (!(await save())) return;
+      await API.post('/admin/email-settings/test');
+      setTestResult({ ok: true, text: `Email di test inviata a ${s?.receiver_email}. Controlla la casella (anche la cartella Spam).` });
+    } catch (e) { setTestResult({ ok: false, text: err(e, 'Invio di test non riuscito') }); } finally { setTesting(false); onSaved?.(); }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-[#0b2545]" /></div>;
+  if (!s) return <div className="flex items-center justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-[#0b2545]" /></div>;
+  const isBrevo = s.provider === 'brevo';
+  const isCustom = s.provider === 'smtp';
+  const choose = (key: string) => {
+    const p = s.providers.find((x) => x.key === key);
+    setS((x) => (x ? { ...x, provider: key, smtp_host: key === 'smtp' ? x.smtp_host : (p?.host || ''), smtp_port: key === 'smtp' ? x.smtp_port : (p?.port || ''), smtp_security: key === 'smtp' ? x.smtp_security : (p?.security || '') } : x));
+    setTestResult(null);
+  };
+
   return (
     <div className="max-w-2xl" data-testid="email-settings-view">
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8">
-        <div className="flex items-center gap-3 mb-1"><span className="w-10 h-10 rounded-xl bg-[#e8f1fc] text-[#1e6fd9] flex items-center justify-center"><Mail className="w-5 h-5" /></span><h2 className="font-display text-[19px] font-bold text-[#0b2545]">Notifiche Email (Gmail SMTP)</h2></div>
-        <p className="font-sans text-[13.5px] text-slate-500 mb-6 leading-relaxed">Ogni richiesta dal sito viene inviata all'indirizzo destinatario. Usa un account Gmail con <strong>verifica in due passaggi</strong> attiva e una <strong>Password per le app</strong> (Account Google → Sicurezza → Password per le app).</p>
-        <form onSubmit={(e) => { e.preventDefault(); save(); }} className="space-y-4" data-testid="email-settings-form">
-          <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Email mittente (Gmail) *</label><input type="email" value={s.sender_email} onChange={(e) => set('sender_email', e.target.value)} className={inputCls} data-testid="email-sender" placeholder="tuonome@gmail.com" /></div>
-          <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Password per le app Google {s.has_app_password && <span className="text-emerald-600 font-normal">· configurata ✓</span>}</label><input type="password" value={s.app_password} onChange={(e) => set('app_password', e.target.value)} className={inputCls} data-testid="email-app-password" placeholder={s.has_app_password ? '•••••••••••• (lascia vuoto per non modificare)' : 'xxxx xxxx xxxx xxxx'} /></div>
-          <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Nome mittente (etichetta "Da")</label><input value={s.sender_name} onChange={(e) => set('sender_name', e.target.value)} className={inputCls} data-testid="email-sender-name" placeholder="E.M Safety" /></div>
-          <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Email destinatario (riceve le richieste) *</label><input type="email" value={s.receiver_email} onChange={(e) => set('receiver_email', e.target.value)} className={inputCls} data-testid="email-receiver" placeholder="info@emsafetygroup.it" /></div>
-          <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Email in copia (CC) — opzionale</label><input type="email" value={s.cc_email} onChange={(e) => set('cc_email', e.target.value)} className={inputCls} data-testid="email-cc" placeholder="secondo@azienda.it" /></div>
+        <div className="flex items-center gap-3 mb-1"><span className="w-10 h-10 rounded-xl bg-[#e8f1fc] text-[#1e6fd9] flex items-center justify-center"><Mail className="w-5 h-5" /></span><h2 className="font-display text-[19px] font-bold text-[#0b2545]">Notifiche email</h2></div>
+        <p className="font-sans text-[13.5px] text-slate-500 mb-5 leading-relaxed">Ogni richiesta dal modulo Contatti e ogni iscrizione a un corso viene inviata all’indirizzo destinatario. Rispondendo all’email scrivete direttamente al cliente. Le richieste restano comunque salvate nella sezione <strong>Richieste</strong>.</p>
+
+        {s.last_status && (
+          <div className={`mb-5 rounded-xl px-4 py-3 font-sans text-[13px] flex items-start gap-2 ${s.last_status === 'ok' ? 'bg-[#e8f6ef] text-[#0f6b43]' : 'bg-[#fdecea] text-[#7a1f15]'}`} data-testid="email-last-status">
+            {s.last_status === 'ok' ? <MailCheck className="w-4 h-4 mt-0.5 shrink-0" /> : <MailX className="w-4 h-4 mt-0.5 shrink-0" />}
+            <span>Ultimo invio {s.last_at ? `(${new Date(s.last_at).toLocaleString('it-IT')})` : ''}: {s.last_status === 'ok' ? 'riuscito.' : s.last_error}</span>
+          </div>
+        )}
+
+        <form onSubmit={(e) => { e.preventDefault(); saveAndToast(); }} className="space-y-4" data-testid="email-settings-form">
+          <div>
+            <label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Servizio di posta</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" data-testid="email-provider">
+              {s.providers.map((p) => (
+                <button key={p.key} type="button" onClick={() => choose(p.key)} data-testid={`email-provider-${p.key}`}
+                  className={`px-3 py-2.5 rounded-xl border font-sans text-[12.5px] font-bold text-left transition-colors cursor-pointer ${s.provider === p.key ? 'border-[#1e6fd9] bg-[#e8f1fc] text-[#0b2545]' : 'border-slate-200 text-slate-600 hover:border-[#1e6fd9]/40'}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <p className="font-sans text-[11.5px] text-slate-400 mt-1.5">
+              {s.provider === 'gmail' && 'Serve la verifica in due passaggi e una “Password per le app” (Account Google → Sicurezza → Password per le app).'}
+              {s.provider === 'aruba' && 'Per le caselle @vostrodominio.it ospitate su Aruba: server smtps.aruba.it, porta 465 SSL.'}
+              {s.provider === 'office365' && 'Per caselle Microsoft 365 / Outlook: l’invio SMTP autenticato deve essere abilitato per la casella.'}
+              {isCustom && 'Inserisci i dati SMTP forniti dal vostro provider di posta.'}
+              {isBrevo && 'Invio tramite API HTTPS (funziona anche se l’hosting blocca le porte SMTP). Account gratuito su brevo.com; il mittente deve essere confermato su Brevo.'}
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Email mittente *</label><input type="email" value={s.sender_email} onChange={(e) => set('sender_email', e.target.value)} className={inputCls} data-testid="email-sender" placeholder={s.provider === 'gmail' ? 'tuonome@gmail.com' : 'info@emsafetygroup.it'} /></div>
+            <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Nome mittente</label><input value={s.sender_name} onChange={(e) => set('sender_name', e.target.value)} className={inputCls} data-testid="email-sender-name" placeholder="E.M Safety" /></div>
+          </div>
+          {isBrevo ? (
+            <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Chiave API Brevo {s.has_api_key && <span className="text-emerald-600 font-normal">· configurata ✓</span>}</label><input type="password" value={s.api_key} onChange={(e) => set('api_key', e.target.value)} className={inputCls} data-testid="email-api-key" placeholder={s.has_api_key ? '•••••••••••• (lascia vuoto per non modificare)' : 'xkeysib-…'} autoComplete="off" /></div>
+          ) : (
+            <>
+              {isCustom && (
+                <div className="grid sm:grid-cols-[1fr_110px_150px] gap-3">
+                  <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Server SMTP *</label><input value={s.smtp_host} onChange={(e) => set('smtp_host', e.target.value)} className={inputCls} data-testid="email-smtp-host" placeholder="smtp.vostrodominio.it" /></div>
+                  <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Porta</label><input type="number" value={s.smtp_port} onChange={(e) => set('smtp_port', e.target.value)} className={inputCls} data-testid="email-smtp-port" placeholder="587" /></div>
+                  <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Sicurezza</label>
+                    <select value={s.smtp_security || 'starttls'} onChange={(e) => set('smtp_security', e.target.value)} className={inputCls} data-testid="email-smtp-security"><option value="starttls">STARTTLS</option><option value="ssl">SSL/TLS</option><option value="none">Nessuna</option></select></div>
+                </div>
+              )}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">{PASSWORD_LABEL[s.provider] || 'Password'} {s.has_app_password && <span className="text-emerald-600 font-normal">· configurata ✓</span>}</label><input type="password" value={s.app_password} onChange={(e) => set('app_password', e.target.value)} className={inputCls} data-testid="email-app-password" placeholder={s.has_app_password ? '•••••••• (lascia vuoto per non modificare)' : ''} autoComplete="new-password" /></div>
+                <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Utente SMTP (se diverso dal mittente)</label><input value={s.smtp_username} onChange={(e) => set('smtp_username', e.target.value)} className={inputCls} data-testid="email-smtp-username" placeholder="facoltativo" /></div>
+              </div>
+            </>
+          )}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Email destinatario (riceve le richieste) *</label><input type="email" value={s.receiver_email} onChange={(e) => set('receiver_email', e.target.value)} className={inputCls} data-testid="email-receiver" placeholder="info@emsafetygroup.it" /></div>
+            <div><label className="block font-sans text-[12.5px] font-semibold text-slate-600 mb-1.5">Email in copia (CC)</label><input type="email" value={s.cc_email} onChange={(e) => set('cc_email', e.target.value)} className={inputCls} data-testid="email-cc" placeholder="facoltativo" /></div>
+          </div>
           <label className="flex items-center gap-3 py-2 cursor-pointer" data-testid="email-enabled-label">
             <button type="button" onClick={() => set('enabled', !s.enabled)} data-testid="email-enabled-toggle" className={`relative w-12 h-7 rounded-full transition-colors ${s.enabled ? 'bg-[#1e6fd9]' : 'bg-slate-300'}`}><span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${s.enabled ? 'translate-x-5' : ''}`} /></button>
             <span className="font-sans text-[14px] font-semibold text-[#0b2545]">Invio email {s.enabled ? 'attivo' : 'disattivato'}</span>
           </label>
-          <div className="flex flex-wrap gap-3 pt-2">
+          {testResult && (
+            <div className={`rounded-xl px-4 py-3 font-sans text-[13px] ${testResult.ok ? 'bg-[#e8f6ef] text-[#0f6b43]' : 'bg-[#fdecea] text-[#7a1f15]'}`} data-testid="email-test-result">{testResult.text}</div>
+          )}
+          <div className="flex flex-wrap gap-3 pt-1">
             <button type="submit" disabled={saving} data-testid="email-save" className="inline-flex items-center gap-2 px-6 py-3 bg-[#0b2545] hover:bg-[#07192e] disabled:opacity-60 text-white font-sans text-[14px] font-bold rounded-xl shadow-lg transition-all active:scale-95 border-b-2 border-[#1e6fd9] cursor-pointer">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Salva impostazioni</button>
-            <button type="button" onClick={test} disabled={testing} data-testid="email-test" className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 disabled:opacity-60 text-[#0b2545] font-sans text-[14px] font-bold rounded-xl border border-slate-200 transition-all cursor-pointer">{testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-[#1e6fd9]" />} Invia email di test</button>
+            <button type="button" onClick={test} disabled={testing || saving} data-testid="email-test" className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-slate-50 disabled:opacity-60 text-[#0b2545] font-sans text-[14px] font-bold rounded-xl border border-slate-200 transition-all cursor-pointer">{testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-[#1e6fd9]" />} Salva e invia email di test</button>
           </div>
         </form>
       </div>
-      <p className="font-sans text-[12px] text-slate-400 mt-4 px-1">La Password per le app è cifrata sul server e non viene mai mostrata di nuovo. {BACKEND ? '' : ''}</p>
+      <p className="font-sans text-[12px] text-slate-400 mt-4 px-1">Password e chiavi sono cifrate sul server e non vengono mai mostrate di nuovo. {BACKEND ? '' : ''}</p>
     </div>
   );
 }
